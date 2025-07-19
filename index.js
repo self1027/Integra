@@ -1,5 +1,4 @@
-const mic = require('mic');
-process.env.PATH = __dirname + '\\node_modules\\vosk;' + process.env.PATH;
+const { spawn } = require('child_process');
 const vosk = require('vosk');
 const fs = require('fs');
 
@@ -11,20 +10,32 @@ if (!fs.existsSync(MODEL_PATH)) {
   process.exit(1);
 }
 
-vosk.setLogLevel(0); // 0 para silencioso
+vosk.setLogLevel(0);
 const model = new vosk.Model(MODEL_PATH);
 const rec = new vosk.Recognizer({ model: model, sampleRate: SAMPLE_RATE });
 
-const micInstance = mic({
-  rate: String(SAMPLE_RATE),
-  channels: '1',
-  debug: false,
-  device: 'default' // você pode trocar isso se quiser usar outro microfone
+const ffmpeg = spawn('ffmpeg', [
+  '-f', 'dshow',                     
+  '-i', 'audio=Microphone (SHEM-BOY)', 
+  '-ar', String(SAMPLE_RATE),        
+  '-ac', '1',                        
+  '-f', 's16le',                     
+  '-bufsize', '4096',                
+  '-loglevel', 'quiet',              
+  'pipe:1'                           
+]);
+
+// Error handling
+ffmpeg.stderr.on('data', (data) => {
+  console.error('FFmpeg error:', data.toString());
 });
 
-const micInputStream = micInstance.getAudioStream();
+ffmpeg.on('error', (err) => {
+  console.error('Failed to start FFmpeg:', err);
+});
 
-micInputStream.on('data', (data) => {
+// Process audio data
+ffmpeg.stdout.on('data', (data) => {
   if (rec.acceptWaveform(data)) {
     const result = rec.result();
     if (result.text) console.log(`🗣️ Resultado: ${result.text}`);
@@ -34,15 +45,16 @@ micInputStream.on('data', (data) => {
   }
 });
 
-micInputStream.on('error', (err) => {
-  console.error('Erro no microfone:', err);
-});
-
-micInputStream.on('end', () => {
-  console.log('Transcrição final:', rec.finalResult());
+// Cleanup
+function shutdown() {
+  ffmpeg.kill();
   rec.free();
   model.free();
-});
+  process.exit();
+}
 
-console.log('🎤 Iniciando microfone. Fale algo em português...');
-micInstance.start();
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
+
+console.log('🎤 Iniciando captura de áudio via FFmpeg (USB Audio Device)...');
+console.log('Pressione Ctrl+C para parar...');
