@@ -1,166 +1,108 @@
-# 🧠 Reconhecimento de Voz em Tempo Real com Vosk + Node.js (Windows)
+# Reconhecimento de Voz em Tempo Real com Vosk + Node.js (via Navegador)
 
-Este projeto realiza transcrição de voz em tempo real em **português** usando o [Vosk API](https://github.com/alphacep/vosk-api) diretamente em **Node.js no Windows**, com entrada do microfone.
-
-> ⚠ **IMPORTANTE:** A integração com `vosk` no Node.js no Windows exige algumas configurações manuais devido a dependências de DLLs e compilação nativa.
+Este projeto realiza transcrição de voz em tempo real em português usando o [Vosk API](https://github.com/alphacep/vosk-api) com entrada de áudio do navegador via WebSocket, utilizando Node.js no Windows.
 
 ---
 
-## ✅ Tecnologias e dependências
+## Tecnologias e dependências
 
-- Node.js `v20.x` ou `v18.x` 64-bit
-- [Vosk API](https://github.com/alphacep/vosk-api)
-- `ffi-napi` (módulo nativo que carrega a `libvosk.dll`)
-- `sox` (para capturar áudio do microfone)
-- Modelo PT-BR (vosk-model-small-pt-0.3)
-
----
-
-## 📦 Passo a passo (com gambiarras)
-
-### 1. Instale o modelo de voz em português
-
-Baixe e extraia o modelo:
-
-```bash
-https://alphacephei.com/vosk/models/vosk-model-small-pt-0.3.zip
-```
-
-Extraia para a raiz do projeto:
-
-```
-./vosk-model-small-pt-0.3/
-```
+- Node.js v18.x ou v20.x 64-bit  
+- Vosk API + modelo vosk-model-small-pt-0.3  
+- WebSocket (`ws`)  
+- FFmpeg (para reamostragem em tempo real)  
+- `wav` (para salvar arquivos de áudio)  
+- Navegador moderno com suporte a Web Audio API  
+- HTML + JavaScript para captura e envio de áudio  
 
 ---
 
-### 2. Instale as dependências
+## Situação inicial
 
-```bash
-npm install vosk ffi-napi
-```
-
-> ⚠ `ffi-napi` pode falhar ao instalar se você **não tiver o Visual Studio Build Tools com C++** instalado.
-
----
-
-### 3. Instale o **Visual C++ Redistributable x64**
-
-O `libvosk.dll` precisa das runtimes de C++:
-
-🔗 https://aka.ms/vs/17/release/vc_redist.x64.exe
+- Código backend que capturava áudio via microfone diretamente no servidor, usando FFmpeg ou sox para captura do áudio do dispositivo local (Windows).  
+- Backend realizava a transcrição com Vosk diretamente sobre este áudio capturado localmente.  
+- Frontend era simples, sem captura de áudio do navegador.  
+- Audio recebidos pelo backend eram diretamente a entrada do FFmpeg ou do sox, e transcrição era feita em tempo real no servidor.
 
 ---
 
-### 4. Corrija o PATH para as DLLs do Vosk
+## Limitações da abordagem inicial
 
-Coloque os seguintes arquivos na pasta:
-
-```
-./node_modules/vosk/
-├── libvosk.dll
-├── libgcc_s_seh-1.dll
-├── libstdc++-6.dll
-├── libwinpthread-1.dll
-```
+- Requeria que o microfone estivesse conectado ao servidor onde o Node.js rodava.  
+- Não era possível captar áudio remotamente do navegador do usuário via internet.  
+- Pouca flexibilidade para integração web.
 
 ---
 
-### 5. Configure o PATH manualmente no `index.js`
+## Mudanças implementadas
 
-Antes de importar `vosk`, adicione:
-
-```js
-process.env.PATH = __dirname + '\\node_modules\\vosk;' + process.env.PATH;
-const vosk = require('vosk');
-```
-
-> Sem isso, ocorre erro `Win32 127` porque o Node não encontra as dependências da DLL.
+- Passamos a capturar o áudio do microfone no navegador via Web Audio API, usando `getUserMedia`.  
+- O áudio capturado (48 kHz, PCM 16-bit mono) é enviado via WebSocket para o backend.  
+- No backend, o áudio recebido em 48 kHz é enviado para o FFmpeg que faz a reamostragem em tempo real para 16 kHz, formato necessário para o Vosk.  
+- O áudio convertido é enviado ao reconhecedor Vosk, que faz o reconhecimento e imprime resultados parciais e finais no console.  
+- Áudios brutos e convertidos são salvos localmente para debug.  
+- O frontend exibe botões para conectar e desconectar a transmissão, além de mostrar status da conexão.
 
 ---
 
-### 6. Instale e configure o `sox` no Windows
+## Justificativas técnicas para as mudanças
 
-O Vosk no Node depende do `sox` para capturar o microfone.
-
-#### Baixe:
-🔗 https://sourceforge.net/projects/sox/files/latest/download
-
-1. Extraia o ZIP em `C:\sox\` ou similar  
-2. Adicione o caminho ao `PATH` do sistema:
-   - `Win + R → sysdm.cpl → Variáveis de ambiente → Path → Adicionar "C:\sox"`
-
-#### Verifique:
-```bash
-sox --version
-```
+Capturar o áudio diretamente no servidor limitava o uso da aplicação a ambientes onde o microfone estivesse fisicamente conectado à máquina do backend, inviabilizando o uso remoto via navegador. Por outro lado, capturar no frontend e enviar o áudio cru ao backend oferece flexibilidade, mas o áudio chega no formato e taxa de amostragem nativos do navegador (48 kHz). Tentar fazer a reamostragem no navegador é possível, porém traz maior complexidade, consumo de CPU do cliente e risco de perda de qualidade ou sincronização. Utilizar o FFmpeg no backend para reamostragem em tempo real garante melhor controle da qualidade do áudio, menor latência na conversão, e mantém o frontend mais simples e leve. Além disso, essa arquitetura facilita a manutenção e futuras melhorias no pipeline de processamento de áudio.
 
 ---
 
-## 🎤 Executando
+## Benefícios da solução atual
 
-```bash
-node index.js
+- Permite capturar áudio do microfone do usuário diretamente no navegador, facilitando uso remoto.  
+- Usa FFmpeg no backend para garantir que o áudio esteja no formato correto para o Vosk, com alta fidelidade e baixa latência.  
+- Modularidade e controle do fluxo do áudio entre frontend e backend via WebSocket.  
+- Interface simples e responsiva para o usuário.  
+- Logs e arquivos salvos para análise e eventuais correções.
+
+---
+
+## Como executar
+
+1. Baixe e extraia o modelo de voz português:  
+   https://alphacephei.com/vosk/models/vosk-model-small-pt-0.3.zip  
+   Extraia para a pasta: `./vosk-model-small-pt-0.3/`
+
+2. Instale as dependências:  
+   ```bash
+   npm install
+   ```
+
+3. Instale o FFmpeg e adicione ao PATH do sistema.
+
+4. Execute o servidor:  
+   ```bash
+   node index.js
+   ```
+
+5. Acesse no navegador:  
+   ```
+   http://localhost:3000
+   ```
+
+---
+
+## Estrutura do projeto
+
 ```
-
-Você verá:
-
-```
-🎤 Iniciando microfone. Fale algo em português...
-… estou
-… falando
-✅ transcrição completa: estou falando com você
+projeto/
+├── index.js               # Servidor Node.js
+├── public/
+│   └── index.html         # Frontend captura e envia áudio
+├── vosk-model-small-pt-0.3/  # Modelo Vosk PT-BR
+├── debug_audio/           # Áudios para debug (entrada e convertidos)
+├── package.json
 ```
 
 ---
 
-## 🧪 Teste de carga de DLL (debug isolado)
+## Funcionamento resumido
 
-Se quiser apenas testar o carregamento da DLL do Vosk:
-
-```js
-// test.js
-process.env.PATH = __dirname + '\\node_modules\\vosk;' + process.env.PATH;
-const ffi = require('ffi-napi');
-
-try {
-  const lib = ffi.Library('./node_modules/vosk/libvosk', {
-    vosk_set_log_level: ['void', ['int']],
-  });
-  console.log("✅ Vosk e runtime carregados com sucesso!");
-} catch (err) {
-  console.error("❌ Falha ao carregar Vosk:", err.message);
-}
-```
-
-```bash
-node test.js
-```
-
----
-
-## 🚫 Possíveis erros e causas
-
-| Erro | Causa | Solução |
-|------|--------|---------|
-| `Win32 error 127` | DLL encontrada, mas dependências ausentes | Adicionar DLLs + configurar PATH |
-| `Win32 error 126` | DLL depende do `vc_redist` | Instalar Visual C++ Redistributable |
-| `spawn sox ENOENT` | SOX não instalado ou fora do PATH | Instalar SOX + configurar PATH |
-| `ffi-napi build failed` | Falta do compilador C++ | Instalar Visual Studio Build Tools com C++ |
-
----
-
-## 📁 Estrutura final esperada
-
-```
-📁 Jessie/
-├── index.js
-├── test.js
-├── vosk-model-small-pt-0.3/
-└── node_modules/
-    └── vosk/
-        ├── libvosk.dll
-        ├── libgcc_s_seh-1.dll
-        ├── libstdc++-6.dll
-        └── libwinpthread-1.dll
-```
+- Navegador envia áudio do microfone em 48 kHz por WebSocket.  
+- Backend usa FFmpeg para converter para 16 kHz em tempo real.  
+- Áudio convertido é processado pelo recognizer do Vosk.  
+- Resultados parciais e finais são exibidos no console do servidor.  
+- Áudios são salvos para análise e debug.  
