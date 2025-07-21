@@ -105,6 +105,49 @@ function patchVLibras() {
 
 patchVLibras();
 
+function patchVLibrasComGloss(onGlossEndCallback) {
+  if (!window.plugin || !window.plugin.player) {
+    setTimeout(() => patchVLibrasComGloss(onGlossEndCallback), 500);
+    return;
+  }
+
+  const player = window.plugin.player;
+
+  // Previne múltiplos patches
+  if (player._glossEndPatched) return;
+
+  // Envolve o método emit para capturar gloss:end
+  const originalEmit = player.emit;
+  player.emit = function(event, ...args) {
+    if (event === 'gloss:end') {
+      console.log('📢 [VLibras] gloss:end detectado!');
+      onGlossEndCallback?.();
+    }
+    return originalEmit.call(this, event, ...args);
+  };
+
+  player._glossEndPatched = true;
+  console.log('✅ patchVLibrasComGloss aplicado com sucesso.');
+}
+/*const frases = ['Olá mundo', 'Tudo bem?', 'Vamos começar!'];
+let atual = 0;
+
+patchVLibrasComGloss(() => {
+  console.log(`Finalizou: ${frases[atual]}`);
+  atual++;
+  if (atual < frases.length) {
+    window.plugin.player.translate(frases[atual]);
+  } else {
+    console.log('Todas as traduções foram concluídas.');
+  }
+});
+
+// Dispara a primeira
+if (window.plugin?.player) {
+  window.plugin.player.translate(frases[atual]);
+}
+ */
+
 document.addEventListener('DOMContentLoaded', function () {
   const widget = new window.VLibras.Widget({
     rootPath: 'https://vlibras.gov.br/app',
