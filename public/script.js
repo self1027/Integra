@@ -417,10 +417,12 @@
                             opacity: this.opacity,
                             avatar: this.avatar
                         };
-                        if (window.plugin || (window.plugin = new window.VLibras.Plugin(i)), this.ready) t();
-                        else {
+                        //t() Muda o cursor para seletor de texto
+                        if (window.plugin || (window.plugin = new window.VLibras.Plugin(i)), this.ready) {
+                            // t();
+                        } else {
                             const e = setInterval((() => {
-                                o() && (t(), this.ready = !0, clearInterval(e))
+                                o() && (/* t(), */ this.ready = !0, clearInterval(e))
                             }), 1e3)
                         }
                     }))
