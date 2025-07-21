@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VLibras - Solução Definitiva</title>
+  <style>
+    [vw].enabled {
+      position: fixed !important;
+      z-index: 2147483647 !important;
+      display: block !important;
+    }
+
+    [vw].centered {
+      left: 50% !important;
+      top: 50% !important;
+      transform: translate(-50%, -50%) !important;
+      margin: 0 !important;
+    }
+
+    [vw-access-button].permanently-hidden {
+      display: none !important;
+      width: 0 !important;
+      height: 0 !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+
+    [vw-plugin-wrapper].active {
+      display: flex !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+    }
+
+    #input-container {
+      margin-top: 2rem;
+    }
+
+    #saidaTexto {
+      margin-top: 1rem;
+      padding: 1rem;
+      border: 1px solid #ccc;
+      background-color: #f9f9f9;
+      min-height: 60px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Conteúdo da Página</h1>
+  <p>Esta é uma demonstração com o widget VLibras sempre visível.</p>
+
+  <!-- Container do VLibras -->
+  <div vw class="enabled">
+    <div vw-access-button class="permanently-hidden"></div>
+    <div vw-plugin-wrapper>
+      <div class="vw-plugin-top-wrapper"></div>
+    </div>
+  </div>
+  <p id="texto1">Texto que quero traduzir sem clicar</p>
+  <button onclick="VLibras.translateElement(document.getElementById('texto1'))">
+    Traduzir Automaticamente
+  </button>
+  <!-- Script VLibras -->
+  <script src="./script-vlibras.js"></script>
+  <script src="./script.js"></script>
+</body>
+</html>
