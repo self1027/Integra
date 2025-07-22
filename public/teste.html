@@ -62,6 +62,18 @@
   </button>
   <!-- Script VLibras -->
   <script src="./script-vlibras.js"></script>
+  <script>
+    (function skipIntro() {
+      const botao = document.querySelector('.vpw-skip-welcome-message');
+      if (botao) {
+        botao.click();
+        botao.style.display = 'none'; // Esconde o botão após o clique
+        console.log('Botão "Pular animação" clicado e ocultado.');
+      } else {
+        setTimeout(skipIntro, 50);
+      }
+    })();       
+  </script>
   <script src="./script.js"></script>
 </body>
 </html>
