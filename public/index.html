@@ -5,22 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>VLibras - Solução Definitiva</title>
   <style>
-    /* Estilo base seguro para o widget */
+    body { background-color: #ececec;}
     [vw].enabled {
       position: fixed !important;
       z-index: 2147483647 !important;
       display: block !important;
     }
-    
-    /* Centralização controlada por classe */
+
     [vw].centered {
       left: 50% !important;
       top: 50% !important;
       transform: translate(-50%, -50%) !important;
       margin: 0 !important;
     }
-    
-    /* Esconder botão de forma definitiva */
+
     [vw-access-button].permanently-hidden {
       display: none !important;
       width: 0 !important;
@@ -28,20 +26,27 @@
       opacity: 0 !important;
       pointer-events: none !important;
     }
-    
-    /* Garantir que o wrapper fique visível */
+
     [vw-plugin-wrapper].active {
       display: flex !important;
       opacity: 1 !important;
       visibility: visible !important;
     }
+
+    #input-container {
+      margin-top: 2rem;
+    }
+
+    #saidaTexto {
+      margin-top: 1rem;
+      padding: 1rem;
+      border: 1px solid #ccc;
+      background-color: #f9f9f9;
+      min-height: 60px;
+    }
   </style>
 </head>
 <body>
-  <h1>Conteúdo da Página</h1>
-  <p>Esta é uma demonstração com o widget VLibras sempre visível.</p>
-  <p>Slap no flap na tcheca. Splash, afogando meu pau na xereca. Rocket poc, ploc, ploc, ploc. Pula ni mim, perereca</p>
-
   <!-- Container do VLibras -->
   <div vw class="enabled">
     <div vw-access-button class="permanently-hidden"></div>
@@ -49,86 +54,47 @@
       <div class="vw-plugin-top-wrapper"></div>
     </div>
   </div>
-
   <!-- Script VLibras -->
-  <script src="./script.js"></script>
+  <script src="./script-vlibras.js"></script>
   <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      // 1. Inicialização com callback
-      const widget = new window.VLibras.Widget({
-        rootPath: 'https://vlibras.gov.br/app',
-        position: 'T',
-        opacity: 0.95
-      });
-      
-      // 2. Controle de estado do widget
-      let widgetInitialized = false;
-      const maxAttempts = 15;
-      let attempts = 0;
-      
-      // 3. Função de verificação robusta
-      function ensureWidgetVisible() {
-        attempts++;
-        
-        const mainWidget = document.querySelector('[vw].enabled');
-        const pluginWrapper = document.querySelector('[vw-plugin-wrapper]');
-        const accessButton = document.querySelector('[vw-access-button]');
-        
-        // Condições de sucesso
-        if (mainWidget && pluginWrapper && accessButton) {
-          // Aplica estilos definitivos
-          mainWidget.classList.add('centered');
-          accessButton.classList.add('permanently-hidden');
-          
-          // Força a abertura se necessário
-          if (!pluginWrapper.classList.contains('active')) {
-            accessButton.click();
-          }
-          
-          // Monitoramento contínuo
-          if (!widgetInitialized) {
-            widgetInitialized = true;
-            console.log('Widget VLibras inicializado com sucesso');
-            
-            // Observer para mudanças no wrapper
-            const observer = new MutationObserver(function(mutations) {
-              mutations.forEach(function(mutation) {
-                if (!pluginWrapper.classList.contains('active')) {
-                  pluginWrapper.classList.add('active');
-                }
-                if (!mainWidget.classList.contains('centered')) {
-                  mainWidget.classList.add('centered');
-                }
-              });
-            });
-            
-            observer.observe(pluginWrapper, {
-              attributes: true,
-              attributeFilter: ['class']
-            });
+    (function monitorarVLibras() {
+      let pulouIntro = false;
+    
+      const interval = setInterval(() => {
+        const btnPular = document.querySelector('.vpw-skip-welcome-message');
+        if (btnPular && !pulouIntro) {
+          btnPular.click();
+          btnPular.style.display = 'none';
+          pulouIntro = true;
+        }
+    
+        if (pulouIntro) {
+          const vpwBox = document.querySelector('[vp-box].vpw-box');
+          if (vpwBox) {
+            vpwBox.style.display = 'none';
+    
+            const estiloAtual = window.getComputedStyle(vpwBox).display;
+            if (estiloAtual === 'none') {
+              clearInterval(interval);
+            }
           }
         }
-        else if (attempts >= maxAttempts) {
-          console.warn('Widget não carregou completamente após tentativas');
-          return;
-        }
-        else {
-          // Continua tentando até o limite
-          setTimeout(ensureWidgetVisible, 300);
+      }, 10);
+    })();    
+    
+    const verificarEsconderVpwBox = setInterval(() => {
+      const vpwBox = document.querySelector('[vp-box].vpw-box');
+      if (vpwBox) {
+        vpwBox.style.display = 'none';
+    
+        // Verifica se a propriedade foi realmente aplicada
+        const estiloAtual = window.getComputedStyle(vpwBox).display;
+        if (estiloAtual === 'none') {
+          clearInterval(verificarEsconderVpwBox);
         }
       }
-      
-      // 4. Inicia o processo
-      setTimeout(ensureWidgetVisible, 1000);
-      
-      // 5. Fallback para redimensionamento
-      window.addEventListener('resize', function() {
-        const mainWidget = document.querySelector('[vw].enabled');
-        if (mainWidget) {
-          mainWidget.classList.add('centered');
-        }
-      });
-    });
+    }, 10);
   </script>
+  <script src="./script.js"></script>
 </body>
 </html>
