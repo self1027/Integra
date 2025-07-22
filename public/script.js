@@ -129,7 +129,9 @@ function patchVLibrasComGloss(onGlossEndCallback) {
   player._glossEndPatched = true;
   console.log('✅ patchVLibrasComGloss aplicado com sucesso.');
 }
-/*const frases = ['Olá mundo', 'Tudo bem?', 'Vamos começar!'];
+
+/*
+const frases = ['Olá mundo', 'Tudo bem?', 'Vamos começar!'];
 let atual = 0;
 
 patchVLibrasComGloss(() => {
@@ -146,7 +148,7 @@ patchVLibrasComGloss(() => {
 if (window.plugin?.player) {
   window.plugin.player.translate(frases[atual]);
 }
- */
+*/
 
 document.addEventListener('DOMContentLoaded', function () {
   const widget = new window.VLibras.Widget({
