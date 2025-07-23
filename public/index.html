@@ -3,59 +3,30 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VLibras - Solução Definitiva</title>
-  <style>
-    body { background-color: #ececec;}
-    [vw].enabled {
-      position: fixed !important;
-      z-index: 2147483647 !important;
-      display: block !important;
-    }
-
-    [vw].centered {
-      left: 50% !important;
-      top: 50% !important;
-      transform: translate(-50%, -50%) !important;
-      margin: 0 !important;
-    }
-
-    [vw-access-button].permanently-hidden {
-      display: none !important;
-      width: 0 !important;
-      height: 0 !important;
-      opacity: 0 !important;
-      pointer-events: none !important;
-    }
-
-    [vw-plugin-wrapper].active {
-      display: flex !important;
-      opacity: 1 !important;
-      visibility: visible !important;
-    }
-
-    #input-container {
-      margin-top: 2rem;
-    }
-
-    #saidaTexto {
-      margin-top: 1rem;
-      padding: 1rem;
-      border: 1px solid #ccc;
-      background-color: #f9f9f9;
-      min-height: 60px;
-    }
-  </style>
+  <meta name="description" content="Solução de acessibilidade com VLibras para transmissão de áudio">
+  <title>VLibras - Solução Definitiva | Transmissão de Áudio</title>
+  <link rel="icon" href="https://www.ifmg.edu.br/conselheirolafaiete/noticias/anexos-noticias/libras-768x767.png" type="image/png">
+  <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
-  <!-- Container do VLibras -->
+  <!-- VLibras -->
   <div vw class="enabled">
     <div vw-access-button class="permanently-hidden"></div>
     <div vw-plugin-wrapper>
       <div class="vw-plugin-top-wrapper"></div>
     </div>
   </div>
-  <!-- Script VLibras -->
-  <script src="./script-vlibras.js"></script>
+
+  <main class="container">
+    <h1>Transmissão de Áudio</h1>
+    <div class="controls">
+      <button id="startBtn" class="btn">Conectar</button>
+      <button id="stopBtn" class="btn" disabled>Desconectar</button>
+      <div id="status" class="status connecting">Status: Desconectado</div>
+    </div>
+  </main>
+
+  <script src="./js/script-vlibras.js"></script>
   <script>
     (function monitorarVLibras() {
       let pulouIntro = false;
@@ -67,12 +38,12 @@
           btnPular.style.display = 'none';
           pulouIntro = true;
         }
-    
+
         if (pulouIntro) {
           const vpwBox = document.querySelector('[vp-box].vpw-box');
           if (vpwBox) {
             vpwBox.style.display = 'none';
-    
+
             const estiloAtual = window.getComputedStyle(vpwBox).display;
             if (estiloAtual === 'none') {
               clearInterval(interval);
@@ -80,14 +51,13 @@
           }
         }
       }, 10);
-    })();    
-    
+    })();
+
     const verificarEsconderVpwBox = setInterval(() => {
       const vpwBox = document.querySelector('[vp-box].vpw-box');
       if (vpwBox) {
         vpwBox.style.display = 'none';
-    
-        // Verifica se a propriedade foi realmente aplicada
+
         const estiloAtual = window.getComputedStyle(vpwBox).display;
         if (estiloAtual === 'none') {
           clearInterval(verificarEsconderVpwBox);
@@ -95,6 +65,7 @@
       }
     }, 10);
   </script>
-  <script src="./script.js"></script>
+  <script src="./js/script.js"></script>
+  <script src="./js/audio_ws.js"></script>
 </body>
 </html>

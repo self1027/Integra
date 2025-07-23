@@ -7,18 +7,12 @@ const fs = require('fs');
 const wav = require('wav');
 const { spawn } = require('child_process');
 
-// Configuração
 const MODEL_PATH = './vosk-model-small-pt-0.3';
-const TARGET_SAMPLE_RATE = 16000; // Vosk requer 16kHz
-const DEBUG_DIR = 'debug_audio';
+const TARGET_SAMPLE_RATE = 16000;
 
 if (!fs.existsSync(MODEL_PATH)) {
-  console.error('Modelo não encontrado. Baixe em: https://alphacephei.com/vosk/models');
+  console.error('Modelo não encontrado.');
   process.exit(1);
-}
-
-if (!fs.existsSync(DEBUG_DIR)) {
-  fs.mkdirSync(DEBUG_DIR);
 }
 
 vosk.setLogLevel(0);
@@ -31,25 +25,6 @@ const wss = new WebSocketServer({ server });
 app.use(express.static(path.join(__dirname, 'public')));
 
 wss.on('connection', (ws) => {
-    console.log('Cliente conectado via WebSocket');
-
-    // Criação dos arquivos de debug
-    const rawWriter = new wav.Writer({
-        sampleRate: 48000,
-        channels: 1,
-        bitDepth: 16
-    });
-    const rawFile = fs.createWriteStream(`${DEBUG_DIR}/raw_${Date.now()}.wav`);
-    rawWriter.pipe(rawFile);
-
-    const processedWriter = new wav.Writer({
-        sampleRate: TARGET_SAMPLE_RATE,
-        channels: 1,
-        bitDepth: 16
-    });
-    const processedFile = fs.createWriteStream(`${DEBUG_DIR}/processed_${Date.now()}.wav`);
-    processedWriter.pipe(processedFile);
-
     const rec = new vosk.Recognizer({ 
         model, 
         sampleRate: TARGET_SAMPLE_RATE 
@@ -67,42 +42,37 @@ wss.on('connection', (ws) => {
         'pipe:1'
     ]);
 
+    let connectionAlive = true;
+
     ws.on('message', (data) => {
-        if (data instanceof Buffer) {
-            rawWriter.write(data);
+        if (!connectionAlive) return;
+        if (data instanceof Buffer && !ffmpeg.stdin.writableEnded) {
             ffmpeg.stdin.write(data);
         }
     });
 
     ffmpeg.stdout.on('data', (resampled) => {
-        processedWriter.write(resampled);
-
+        if (!connectionAlive) return;
         if (rec.acceptWaveform(resampled)) {
             const result = rec.result();
             if (result.text) {
-                console.log('Transcrição:', result.text);
+                ws.send(JSON.stringify({ tipo: 'frase', texto: result.text }));
             }
         }
     });
 
     function cleanup() {
-        rawWriter.end();
-        processedWriter.end();
-        rec.free();
-        ffmpeg.kill();
-        console.log(`Áudio original salvo em: ${DEBUG_DIR}/raw_*.wav`);
-        console.log(`Áudio processado salvo em: ${DEBUG_DIR}/processed_*.wav`);
+        connectionAlive = false;
+        try { rec.free(); } catch (e) {}
+        try { ffmpeg.kill(); } catch (e) {}
     }
 
-    ws.on('close', () => {
-        console.log('Cliente desconectado');
-        cleanup();
-    });
+    ws.on('close', cleanup);
+    ws.on('error', cleanup);
+});
 
-    ws.on('error', (error) => {
-        console.error('Erro WebSocket:', error);
-        cleanup();
-    });
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 server.listen(3000, () => {
