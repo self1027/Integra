@@ -1,112 +1,16 @@
-function monitorarFimTraducao(callback) {
-  const playerElement = document.querySelector('[vp]');
-
-  if (!playerElement) {
-    console.warn('Elemento [vp] (VLibras player) não encontrado.');
-    return;
-  }
-
-  function aoTerminarTraducao() {
-    callback();
-  }
-
-  playerElement.removeEventListener('gloss:end', aoTerminarTraducao);
-  playerElement.addEventListener('gloss:end', aoTerminarTraducao);
-}
-
-function traduzirTextosSequencialmente(textos, callbackFinal) {
-  let index = 0;
-
-  function traduzirProximo() {
-    if (index >= textos.length) {
-      callbackFinal?.();
-      return;
-    }
-
-    const textoAtual = textos[index];
-    window.plugin?.player?.translate(textoAtual);
-
-    monitorarFimTraducao(() => {
-      index++;
-      traduzirProximo();
-    });
-
-    setTimeout(() => {
-      if (textos[index] === textoAtual) {
-        index++;
-        traduzirProximo();
-      }
-    }, 15000);
-  }
-
-  traduzirProximo();
-}
-
-function patchVLibras() {
-  if (!window.plugin) {
-    setTimeout(patchVLibras, 500);
-    return;
-  }
-
-  window.VLibras.translateElement = function (element, onComplete) {
-    if (!element) return;
-
-    const text = element.innerText || element.textContent;
-    if (!text?.trim()) return;
-
-    const player = window.plugin?.player;
-    if (!player || typeof player.translate !== 'function') return;
-
-    player.translate(text);
-
-    const legendaContainer = document.querySelector('[vw] [vw-texto]');
-    if (!legendaContainer) return;
-
-    let ultimaLegenda = legendaContainer.innerText.trim();
-    let timeout;
-
-    const observer = new MutationObserver(() => {
-      const novaLegenda = legendaContainer.innerText.trim();
-
-      if (novaLegenda && novaLegenda !== ultimaLegenda) {
-        ultimaLegenda = novaLegenda;
-        clearTimeout(timeout);
-        timeout = setTimeout(() => {
-          observer.disconnect();
-          onComplete?.();
-        }, 1000);
-      }
-    });
-
-    observer.observe(legendaContainer, {
-      childList: true,
-      subtree: true,
-      characterData: true
-    });
-
-    setTimeout(() => {
-      observer.disconnect();
-      onComplete?.();
-    }, 15000);
-  };
-}
-
-patchVLibras();
-
-function patchVLibrasComGloss(onGlossEndCallback) {
+function patchVLibrasComGloss(onGlossEndCallback) { //Permite acessar gloss:end para saber quando acabou a interpretação e chamar prox elemento do array
   if (!window.plugin || !window.plugin.player) {
     setTimeout(() => patchVLibrasComGloss(onGlossEndCallback), 500);
     return;
   }
 
   const player = window.plugin.player;
-
   if (player._glossEndPatched) return;
 
   const originalEmit = player.emit;
   player.emit = function(event, ...args) {
-    if (event === 'gloss:end') {
-      onGlossEndCallback?.();
+    if (event === 'gloss:end' && onGlossEndCallback) {
+      onGlossEndCallback();
     }
     return originalEmit.call(this, event, ...args);
   };
@@ -114,7 +18,7 @@ function patchVLibrasComGloss(onGlossEndCallback) {
   player._glossEndPatched = true;
 }
 
-document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', function() {
   const widget = new window.VLibras.Widget({
     rootPath: 'https://vlibras.gov.br/app',
     position: 'T',
@@ -127,7 +31,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
   function ensureWidgetVisible() {
     attempts++;
-
     const mainWidget = document.querySelector('[vw].enabled');
     const pluginWrapper = document.querySelector('[vw-plugin-wrapper]');
     const accessButton = document.querySelector('[vw-access-button]');
@@ -142,7 +45,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
       if (!widgetInitialized) {
         widgetInitialized = true;
-
         const observer = new MutationObserver(() => {
           if (!pluginWrapper.classList.contains('active')) {
             pluginWrapper.classList.add('active');
@@ -151,11 +53,7 @@ document.addEventListener('DOMContentLoaded', function () {
             mainWidget.classList.add('centered');
           }
         });
-
-        observer.observe(pluginWrapper, {
-          attributes: true,
-          attributeFilter: ['class']
-        });
+        observer.observe(pluginWrapper, { attributes: true });
       }
     } else if (attempts < maxAttempts) {
       setTimeout(ensureWidgetVisible, 300);
@@ -180,12 +78,11 @@ function iniciarVLibrasAutomatico() {
 
   const frase = filaFrases[0];
   lendo = true;
-
   window.plugin.player.translate(frase);
 }
 
 patchVLibrasComGloss(() => {
-  const fraseFinalizada = filaFrases.shift();
+  filaFrases.shift();
   lendo = false;
   iniciarVLibrasAutomatico();
 });

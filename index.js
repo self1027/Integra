@@ -44,6 +44,8 @@ wss.on('connection', (ws) => {
 
     let connectionAlive = true;
 
+    let connectionAlive = true;
+
     ws.on('message', (data) => {
         if (!connectionAlive) return;
         if (data instanceof Buffer && !ffmpeg.stdin.writableEnded) {
@@ -56,12 +58,15 @@ wss.on('connection', (ws) => {
         if (rec.acceptWaveform(resampled)) {
             const result = rec.result();
             if (result.text) {
-                ws.send(JSON.stringify({ tipo: 'frase', texto: result.text }));
+                ws.send(JSON.stringify({ tipo: 'frase', texto: result.text })); //Envia pro front
             }
         }
     });
 
     function cleanup() {
+        connectionAlive = false;
+        try { rec.free(); } catch (e) {}
+        try { ffmpeg.kill(); } catch (e) {}
         connectionAlive = false;
         try { rec.free(); } catch (e) {}
         try { ffmpeg.kill(); } catch (e) {}
