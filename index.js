@@ -44,8 +44,6 @@ wss.on('connection', (ws) => {
 
     let connectionAlive = true;
 
-    let connectionAlive = true;
-
     ws.on('message', (data) => {
         if (!connectionAlive) return;
         if (data instanceof Buffer && !ffmpeg.stdin.writableEnded) {
@@ -67,17 +65,30 @@ wss.on('connection', (ws) => {
         connectionAlive = false;
         try { rec.free(); } catch (e) {}
         try { ffmpeg.kill(); } catch (e) {}
-        connectionAlive = false;
-        try { rec.free(); } catch (e) {}
-        try { ffmpeg.kill(); } catch (e) {}
     }
 
     ws.on('close', cleanup);
     ws.on('error', cleanup);
 });
 
+// Rota principal - redireciona para landing page
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Rota para a landing page
+app.get('/landing', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'landing.html'));
+});
+
+// Rota para a versão desktop
+app.get('/desktop', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'desktop.html'));
+});
+
+// Rota para a versão mobile
+app.get('/mobile', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'mobile.html'));
 });
 
 server.listen(3000, () => {
