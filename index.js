@@ -44,8 +44,6 @@ wss.on('connection', (ws) => {
 
     let connectionAlive = true;
 
-    let connectionAlive = true;
-
     ws.on('message', (data) => {
         if (!connectionAlive) return;
         if (data instanceof Buffer && !ffmpeg.stdin.writableEnded) {
