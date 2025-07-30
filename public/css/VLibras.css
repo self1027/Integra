@@ -1,0 +1,26 @@
+[vw].enabled {
+  position: fixed !important;
+  z-index: 2147483647 !important;
+  display: block !important;
+}
+
+[vw].centered {
+  left: 50% !important;
+  top: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  margin: 0 !important;
+}
+
+[vw-access-button].permanently-hidden {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+[vw-plugin-wrapper].active {
+  display: flex !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
