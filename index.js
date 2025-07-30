@@ -83,6 +83,9 @@ function setupWebSocket(ws) {
         connectionAlive = false;
         try { rec.free(); } catch (e) {}
         try { ffmpeg.kill(); } catch (e) {}
+        connectionAlive = false;
+        try { rec.free(); } catch (e) {}
+        try { ffmpeg.kill(); } catch (e) {}
     }
 
     ws.on('close', cleanup);
