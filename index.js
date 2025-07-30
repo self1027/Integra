@@ -30,7 +30,11 @@ const app = express();
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(path.join(__dirname, 'public', 'landpage.html'));
+});
+
+app.get('/app', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'app.html'));
 });
 
 const httpServer = http.createServer(app);
@@ -64,22 +68,24 @@ function setupWebSocket(ws) {
 
         try {
             // Verifica se é metadado com sample rate
-            if (typeof data === 'string' || (data instanceof Buffer && data.toString().startsWith('{'))) {
-                const message = JSON.parse(data.toString());
-                
-                if (message.type === 'audio_metadata' && message.sampleRate) {
-                    const newSampleRate = Number(message.sampleRate);
-                    
-                    // Só reinicia se o sample rate for diferente
-                    if (newSampleRate !== inputSampleRate) {
-                        inputSampleRate = newSampleRate;
-                        usingWsSampleRate = true;
-                        initializeFfmpeg(inputSampleRate, true);
-                        console.log(`[WS-SR] Configurado FFmpeg com sample rate do WebSocket: ${inputSampleRate}Hz → ${TARGET_SAMPLE_RATE}Hz`);
+            if (typeof data === 'string') {
+                try {
+                    const message = JSON.parse(data);
+                    if (message.type === 'audio_metadata' && message.sampleRate) {
+                        const newSampleRate = Number(message.sampleRate);
+            
+                        if (newSampleRate !== inputSampleRate) {
+                            inputSampleRate = newSampleRate;
+                            usingWsSampleRate = true;
+                            initializeFfmpeg(inputSampleRate, true);
+                            console.log(`[WS-SR] Configurado FFmpeg com sample rate do WebSocket: ${inputSampleRate}Hz → ${TARGET_SAMPLE_RATE}Hz`);
+                        }
                     }
                     return;
+                } catch (err) {
+                    console.warn('Ignorando dado string inválido:', err.message);
                 }
-            }
+            }            
 
             // Processa dados de áudio
             if (data instanceof Buffer && ffmpeg && !ffmpeg.stdin.writableEnded) {
