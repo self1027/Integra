@@ -43,49 +43,120 @@ const wssHttp = new WebSocketServer({ server: httpServer });
 const wssHttps = new WebSocketServer({ server: httpsServer });
 
 function setupWebSocket(ws) {
-    const rec = new vosk.Recognizer({ 
+    const TARGET_SAMPLE_RATE = 16000; // Fixo para o Vosk
+    const FALLBACK_SAMPLE_RATE = 48000; // Valor fallback
+    
+    let rec = new vosk.Recognizer({ 
         model, 
-        sampleRate: TARGET_SAMPLE_RATE 
+        sampleRate: TARGET_SAMPLE_RATE
     });
 
-    const ffmpeg = spawn('ffmpeg', [
-        '-f', 's16le',
-        '-ar', '48000',
-        '-ac', '1',
-        '-i', 'pipe:0',
-        '-f', 's16le',
-        '-ar', String(TARGET_SAMPLE_RATE),
-        '-ac', '1',
-        '-loglevel', 'quiet',
-        'pipe:1'
-    ]);
-
+    let ffmpeg = null;
+    let inputSampleRate = FALLBACK_SAMPLE_RATE;
     let connectionAlive = true;
+    let usingWsSampleRate = false; // Flag para controlar a origem do sample rate
+
+    // Inicializa com fallback
+    initializeFfmpeg(FALLBACK_SAMPLE_RATE, false);
 
     ws.on('message', (data) => {
         if (!connectionAlive) return;
-        if (data instanceof Buffer && !ffmpeg.stdin.writableEnded) {
-            ffmpeg.stdin.write(data);
+
+        try {
+            // Verifica se é metadado com sample rate
+            if (typeof data === 'string' || (data instanceof Buffer && data.toString().startsWith('{'))) {
+                const message = JSON.parse(data.toString());
+                
+                if (message.type === 'audio_metadata' && message.sampleRate) {
+                    const newSampleRate = Number(message.sampleRate);
+                    
+                    // Só reinicia se o sample rate for diferente
+                    if (newSampleRate !== inputSampleRate) {
+                        inputSampleRate = newSampleRate;
+                        usingWsSampleRate = true;
+                        initializeFfmpeg(inputSampleRate, true);
+                        console.log(`[WS-SR] Configurado FFmpeg com sample rate do WebSocket: ${inputSampleRate}Hz → ${TARGET_SAMPLE_RATE}Hz`);
+                    }
+                    return;
+                }
+            }
+
+            // Processa dados de áudio
+            if (data instanceof Buffer && ffmpeg && !ffmpeg.stdin.writableEnded) {
+                ffmpeg.stdin.write(data);
+            }
+        } catch (err) {
+            console.error('Erro ao processar mensagem:', err);
         }
     });
 
-    ffmpeg.stdout.on('data', (resampled) => {
-        if (!connectionAlive) return;
-        if (rec.acceptWaveform(resampled)) {
-            const result = rec.result();
-            if (result.text) {
-                ws.send(JSON.stringify({ tipo: 'frase', texto: result.text }));
+    function initializeFfmpeg(sampleRate, fromWebSocket) {
+        if (ffmpeg) {
+            try { ffmpeg.kill(); } catch (e) { 
+                console.error('Error killing ffmpeg:', e); 
             }
         }
-    });
+
+        ffmpeg = spawn('ffmpeg', [
+            '-f', 's16le',
+            '-ar', String(sampleRate),
+            '-ac', '1',
+            '-i', 'pipe:0',
+            '-f', 's16le',
+            '-ar', String(TARGET_SAMPLE_RATE),
+            '-ac', '1',
+            '-loglevel', 'quiet',
+            'pipe:1'
+        ]);
+
+        setupFfmpegHandlers();
+        
+        if (!fromWebSocket) {
+            console.log(`[FALLBACK-SR] Configurado FFmpeg com sample rate fallback: ${sampleRate}Hz → ${TARGET_SAMPLE_RATE}Hz`);
+        }
+    }
+
+    function setupFfmpegHandlers() {
+        ffmpeg.stdout.on('data', (resampled) => {
+            if (!connectionAlive) return;
+            if (rec.acceptWaveform(resampled)) {
+                const result = rec.result();
+                if (result.text) {
+                    ws.send(JSON.stringify({ 
+                        tipo: 'frase', 
+                        texto: result.text
+                    }));
+                    console.log(result.text)
+                }
+            }
+        });
+
+        ffmpeg.stderr.on('data', (data) => {
+            console.error('ffmpeg stderr:', data.toString());
+        });
+
+        ffmpeg.on('error', (err) => {
+            console.error('ffmpeg error:', err);
+            cleanup();
+        });
+
+        ffmpeg.on('close', (code) => {
+            console.log(`ffmpeg process exited with code ${code}`);
+            cleanup();
+        });
+    }
 
     function cleanup() {
+        if (!connectionAlive) return;
         connectionAlive = false;
-        try { rec.free(); } catch (e) {}
-        try { ffmpeg.kill(); } catch (e) {}
-        connectionAlive = false;
-        try { rec.free(); } catch (e) {}
-        try { ffmpeg.kill(); } catch (e) {}
+        
+        try { rec.free(); } catch (e) { 
+            console.error('Error freeing recognizer:', e); 
+        }
+        
+        try { if (ffmpeg) ffmpeg.kill(); } catch (e) { 
+            console.error('Error killing ffmpeg:', e); 
+        }
     }
 
     ws.on('close', cleanup);
