@@ -18,7 +18,7 @@ async function connectWebSocket() {
     return new Promise((resolve, reject) => {
         updateStatus("Conectando ao servidor...", "connecting");
 
-        socket = new WebSocket(`ws://${window.location.hostname}:3000`);
+        socket = new WebSocket(`wss://${window.location.hostname}`);
         socket.binaryType = 'arraybuffer';
 
         socket.onopen = () => {
