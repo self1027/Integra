@@ -47,62 +47,40 @@ const wssHttp = new WebSocketServer({ server: httpServer });
 const wssHttps = new WebSocketServer({ server: httpsServer });
 
 function setupWebSocket(ws) {
-    const TARGET_SAMPLE_RATE = 16000; // Fixo para o Vosk
-    const FALLBACK_SAMPLE_RATE = 48000; // Valor fallback
-    
-    let rec = new vosk.Recognizer({ 
-        model, 
-        sampleRate: TARGET_SAMPLE_RATE
-    });
+    const METADATA_WAIT_TIMEOUT = 5000; // 5 segundos para esperar metadados
+    const TARGET_SAMPLE_RATE = 16000;
+    const FALLBACK_SAMPLE_RATE = 48000;
+    const DEBUG_DIR = './debug_recordings';
 
+    if (!fs.existsSync(DEBUG_DIR)) {
+        fs.mkdirSync(DEBUG_DIR, { recursive: true });
+    }
+
+    let rec = null;
     let ffmpeg = null;
-    let inputSampleRate = FALLBACK_SAMPLE_RATE;
+    let inputSampleRate = null;
     let connectionAlive = true;
-    let usingWsSampleRate = false; // Flag para controlar a origem do sample rate
+    let audioBuffer = [];
+    let metadataTimeout = null;
+    let debugInterval = null;
+    let isMetadataReceived = false; // Estado para otimização
 
-    // Inicializa com fallback
-    initializeFfmpeg(FALLBACK_SAMPLE_RATE, false);
-
-    ws.on('message', (data) => {
-        if (!connectionAlive) return;
-
-        try {
-            // Verifica se é metadado com sample rate
-            if (typeof data === 'string') {
-                try {
-                    const message = JSON.parse(data);
-                    if (message.type === 'audio_metadata' && message.sampleRate) {
-                        const newSampleRate = Number(message.sampleRate);
-            
-                        if (newSampleRate !== inputSampleRate) {
-                            inputSampleRate = newSampleRate;
-                            usingWsSampleRate = true;
-                            initializeFfmpeg(inputSampleRate, true);
-                            console.log(`[WS-SR] Configurado FFmpeg com sample rate do WebSocket: ${inputSampleRate}Hz → ${TARGET_SAMPLE_RATE}Hz`);
-                        }
-                    }
-                    return;
-                } catch (err) {
-                    console.warn('Ignorando dado string inválido:', err.message);
-                }
-            }            
-
-            // Processa dados de áudio
-            if (data instanceof Buffer && ffmpeg && !ffmpeg.stdin.writableEnded) {
-                ffmpeg.stdin.write(data);
-            }
-        } catch (err) {
-            console.error('Erro ao processar mensagem:', err);
-        }
-    });
-
-    function initializeFfmpeg(sampleRate, fromWebSocket) {
+    // Inicializa FFmpeg e Vosk quando temos o sample rate
+    function initializeFfmpeg(sampleRate) {
         if (ffmpeg) {
-            try { ffmpeg.kill(); } catch (e) { 
-                console.error('Error killing ffmpeg:', e); 
+            try {
+                ffmpeg.stdin.end();
+                ffmpeg.kill('SIGTERM');
+            } catch (e) {
+                console.error('Error killing previous ffmpeg:', e);
             }
         }
+        
+        // Cria o recognizer VOSK com a taxa de amostragem alvo
+        rec = new vosk.Recognizer({ model, sampleRate: TARGET_SAMPLE_RATE });
 
+        console.log(`[FFMPEG] Starting with input sample rate: ${sampleRate}Hz, output: ${TARGET_SAMPLE_RATE}Hz`);
+        
         ffmpeg = spawn('ffmpeg', [
             '-f', 's16le',
             '-ar', String(sampleRate),
@@ -111,58 +89,117 @@ function setupWebSocket(ws) {
             '-f', 's16le',
             '-ar', String(TARGET_SAMPLE_RATE),
             '-ac', '1',
-            '-loglevel', 'quiet',
+            '-loglevel', 'error',
             'pipe:1'
         ]);
 
-        setupFfmpegHandlers();
-        
-        if (!fromWebSocket) {
-            console.log(`[FALLBACK-SR] Configurado FFmpeg com sample rate fallback: ${sampleRate}Hz → ${TARGET_SAMPLE_RATE}Hz`);
-        }
-    }
-
-    function setupFfmpegHandlers() {
-        ffmpeg.stdout.on('data', (resampled) => {
-            if (!connectionAlive) return;
-            if (rec.acceptWaveform(resampled)) {
-                const result = rec.result();
-                if (result.text) {
-                    ws.send(JSON.stringify({ 
-                        tipo: 'frase', 
-                        texto: result.text
-                    }));
-                    console.log(result.text)
+        ffmpeg.stdout.on('data', (data) => {
+            if (rec && connectionAlive) {
+                if (rec.acceptWaveform(data)) {
+                    const result = rec.result();
+                    if (result.text) {
+                        console.log('Result:', result.text);
+                        ws.send(JSON.stringify({ tipo: 'frase', texto: result.text }));
+                    }
                 }
             }
         });
 
-        ffmpeg.stderr.on('data', (data) => {
-            console.error('ffmpeg stderr:', data.toString());
-        });
-
-        ffmpeg.on('error', (err) => {
-            console.error('ffmpeg error:', err);
-            cleanup();
-        });
-
+        ffmpeg.stderr.on('data', (data) => { console.error('[FFMPEG]', data.toString()); });
+        ffmpeg.on('error', (err) => { console.error('FFmpeg error:', err); });
         ffmpeg.on('close', (code) => {
-            console.log(`ffmpeg process exited with code ${code}`);
-            cleanup();
+            console.log(`FFmpeg exited with code ${code}`);
+            if (connectionAlive && code !== 0) {
+                console.log('Restarting FFmpeg...');
+                setTimeout(() => initializeFfmpeg(sampleRate), 1000);
+            }
         });
+
+        if (audioBuffer.length > 0) {
+            console.log(`Processing ${audioBuffer.length} buffered chunks`);
+            audioBuffer.forEach(chunk => ffmpeg.stdin.write(chunk));
+            audioBuffer = [];
+        }
     }
+
+    // Inicia o timeout para metadados imediatamente
+    metadataTimeout = setTimeout(() => {
+        if (!isMetadataReceived) {
+            console.log(`[TIMEOUT] Using fallback sample rate: ${FALLBACK_SAMPLE_RATE}Hz`);
+            inputSampleRate = FALLBACK_SAMPLE_RATE;
+            isMetadataReceived = true;
+            initializeFfmpeg(inputSampleRate);
+        }
+    }, METADATA_WAIT_TIMEOUT);
+
+    // Inicia o heartbeat de debug
+    debugInterval = setInterval(() => {
+        if (connectionAlive) console.log('[STATUS] Connection alive, sample rate:', inputSampleRate || 'waiting...');
+    }, 10000);
+
+    ws.on('message', (data) => {        
+        // Se metadados já foram recebidos, assume que é áudio e otimiza
+        if (isMetadataReceived) {
+            if (Buffer.isBuffer(data)) {
+                if (ffmpeg && ffmpeg.stdin.writable) {
+                    ffmpeg.stdin.write(data);
+                }
+            }
+            return;
+        }
+
+        // Tenta processar a mensagem como metadados JSON
+        let messageContent = data;
+        if (Buffer.isBuffer(data)) {
+            try {
+                messageContent = data.toString('utf8');
+            } catch (e) {
+                messageContent = data;
+            }
+        }
+
+        if (typeof messageContent === 'string') {
+            console.log("[DEBUG] Mensagem recebida:", data);
+            try {
+                const message = JSON.parse(messageContent);
+                if (message.type === 'audio_metadata' && message.sampleRate) {
+                    console.log(`[METADATA] Received sample rate: ${message.sampleRate}`);
+                    
+                    clearTimeout(metadataTimeout);
+                    inputSampleRate = message.sampleRate;
+                    isMetadataReceived = true;
+                    initializeFfmpeg(inputSampleRate);
+                    
+                    return;
+                }
+            } catch (err) {
+                // Não é JSON válido, ignora
+            }
+        }
+        
+        // Se ainda não recebeu metadados e é áudio, bufferiza
+        if (Buffer.isBuffer(data)) {
+            audioBuffer.push(data);
+            // O timeout já foi iniciado, não é preciso iniciá-lo novamente
+        }
+    });
 
     function cleanup() {
         if (!connectionAlive) return;
         connectionAlive = false;
         
-        try { rec.free(); } catch (e) { 
-            console.error('Error freeing recognizer:', e); 
+        if (debugInterval) clearInterval(debugInterval);
+        if (metadataTimeout) clearTimeout(metadataTimeout);
+        
+        if (ffmpeg) {
+            try { ffmpeg.stdin.end(); ffmpeg.kill(); } catch (e) { console.error('Cleanup error:', e); }
         }
         
-        try { if (ffmpeg) ffmpeg.kill(); } catch (e) { 
-            console.error('Error killing ffmpeg:', e); 
+        if (rec) {
+            try { rec.free(); } catch (e) { console.error('Recognizer free error:', e); }
         }
+
+        console.log('[CLEANUP] Connection closed.');
     }
 
     ws.on('close', cleanup);
