@@ -13,7 +13,7 @@ const MAX_RETRIES = 5;
 const RECONNECT_DELAY_BASE = 1000;
 const METADATA_INTERVAL = 30000; // 30 segundos
 
-// Configurações de status
+// Configurações de status - centraliza todos os possíveis estados da UI para manter consistência
 const statusStates = {
   INITIAL: { text: "Pronto para conectar", className: "status ready" },
   CONNECTING: { text: "Conectando ao servidor...", className: "status connecting" },
@@ -26,7 +26,6 @@ const statusStates = {
   SAMPLE_RATE_DETECTION: { text: "Detectando configurações de áudio...", className: "status processing" }
 };
 
-// Atualiza o status na UI
 function updateStatus(state, options = {}) {
   const statusConfig = statusStates[state];
   
@@ -43,6 +42,7 @@ function updateStatus(state, options = {}) {
   statusDiv.className = statusConfig.className;
 }
 
+// Envia metadados críticos sobre o áudio para sincronização no servidor
 function sendAudioMetadata() {
   if (socket?.readyState === WebSocket.OPEN && audioContext) {
     const metadata = {
@@ -52,7 +52,6 @@ function sendAudioMetadata() {
 
     console.log("[METADATA] Enviando:", metadata);
 
-    // Envia o objeto como uma string JSON
     socket.send(JSON.stringify(metadata));
     return true;
   }
@@ -61,14 +60,12 @@ function sendAudioMetadata() {
   return false;
 }
 
-// Configura o intervalo de envio de metadados
+// Mantém o servidor atualizado sobre as configurações de áudio periodicamente
 function setupMetadataHeartbeat() {
   if (!socket) return;
   
-  // Envia imediatamente
   sendAudioMetadata();
   
-  // Configura intervalo periódico
   if (socket.metadataInterval) {
     clearInterval(socket.metadataInterval);
   }
@@ -78,12 +75,11 @@ function setupMetadataHeartbeat() {
   }, METADATA_INTERVAL);
 }
 
-// Conecta ao WebSocket
+// Conexão WebSocket com tratamento de erros e reconexão
 async function connectWebSocket() {
   return new Promise((resolve, reject) => {
     updateStatus('CONNECTING');
     
-    // Fecha conexão existente se houver
     if (socket) {
       socket.onclose = null;
       socket.close();
@@ -128,45 +124,105 @@ async function connectWebSocket() {
   });
 }
 
-// Processamento de áudio
+// Pipeline complexo de processamento de áudio com múltiplos estágios de filtragem
 function setupAudioProcessing() {
   try {
     updateStatus('AUDIO_PROCESSING');
-    
+
     const source = audioContext.createMediaStreamSource(stream);
+
+    // Configuração dos filtros de áudio (ordem é crítica para o resultado final)
+    // Highpass Filter (300Hz) - Remove frequências indesejadas
+    const highpass = audioContext.createBiquadFilter();
+    highpass.type = 'highpass';          // Corta frequências abaixo do corte
+    highpass.frequency.value = 300;      // Ideal para remover ruídos de vento/vibração
+    highpass.Q.value = 0.707;            // Curva suave (Butterworth) sem distorção
+
+    // Notch Filter (60Hz) - Elimina interferência elétrica
+    const notch = audioContext.createBiquadFilter();
+    notch.type = "notch";                // Corta estreitamente uma frequência específica
+    notch.frequency.value = 60;          // Alvo: ruído de rede elétrica (50Hz na Europa)
+    notch.Q.value = 5.0;                 // Banda estreita para não afetar vozes
+
+    // Pre-Ênfase (High Shelf) - Melhora inteligibilidade
+    const preEmphasis = audioContext.createBiquadFilter();
+    preEmphasis.type = 'highshelf';      // Aumenta apenas altas frequências
+    preEmphasis.frequency.value = 2000;  // Foco em consoantes (2000-3400Hz)
+    preEmphasis.gain.value = 4.0;        // +4dB boost - Suficiente para ASR sem distorção
+
+    // De-esser - Reduz sibilância ("s" estridentes)
+    const deesser = audioContext.createBiquadFilter();
+    deesser.type = 'peaking';            // Corte seletivo
+    deesser.frequency.value = 5000;      // Faixa crítica de sibilância
+    deesser.gain.value = -6.0;           // Redução moderada
+    deesser.Q.value = 2.0;               // Banda estreita para não afetar outras frequências
+
+    // Lowpass Filter (3400Hz) - Remove hiss/ruídos agudos
+    const lowpass = audioContext.createBiquadFilter();
+    lowpass.type = 'lowpass';            // Corta frequências acima do corte
+    lowpass.frequency.value = 3400;      // Limite superior da voz humana para ASR
+    lowpass.Q.value = 0.707;             // Curva natural (Butterworth)
+
+    // Compressor - Normaliza volume dinâmico
+    const compressor = audioContext.createDynamicsCompressor();
+    compressor.threshold.value = -20;    // Inicia compressão em -20dBFS (evita picos)
+    compressor.ratio.value = 4;          // 4:1 - Redução suave sem "bombeamento"
+    compressor.attack.value = 0.01;      // 10ms - Resposta rápida a picos repentinos
+    compressor.release.value = 0.1;      // 100ms - Liberação natural
+
     processor = audioContext.createScriptProcessor(4096, 1, 1);
 
-    source.connect(processor);
-    processor.connect(audioContext.destination);
+    const mute = audioContext.createGain();
+    mute.gain.value = 0;
+
+    // Conexão dos componentes na ordem específica para melhor qualidade de áudio
+    source.connect(highpass);
+    highpass.connect(notch);
+    notch.connect(preEmphasis);
+    preEmphasis.connect(deesser);
+    deesser.connect(lowpass);
+    lowpass.connect(compressor);
+    compressor.connect(processor);
+    processor.connect(mute);
+    mute.connect(audioContext.destination);
+
+    if (audioContext.state === 'suspended') {
+      audioContext.resume().catch(console.error);
+    }
+
+    let frameCount = 0;
 
     processor.onaudioprocess = (e) => {
-      if (socket?.readyState === WebSocket.OPEN) {
+      if (socket?.readyState !== WebSocket.OPEN) return;
+
+      try {
         const input = e.inputBuffer.getChannelData(0);
+
+        if ((frameCount++ % 30) === 0) {
+          let sum = 0;
+          for (let i = 0; i < input.length; i++) sum += input[i] * input[i];
+          const rms = Math.sqrt(sum / input.length);
+          console.log(`[AUDIO] len=${input.length} rms=${rms.toFixed(4)}`);
+        }
+
+        // Conversão de float32 para PCM16 (formato esperado pelo back)
         const pcm = new Int16Array(input.length);
-        
-        // Converte para PCM 16-bit
         for (let i = 0; i < input.length; i++) {
-          pcm[i] = Math.max(-32768, Math.min(32767, input[i] * 32767));
+          let s = input[i];
+          if (s > 1) s = 1;
+          else if (s < -1) s = -1;
+          pcm[i] = (s * 32767) | 0;
         }
-        
-        // Verifica tamanho do chunk
-        if (pcm.length % 2 !== 0) {
-          console.warn("[AUDIO] Chunk com tamanho ímpar:", pcm.length);
-          return;
-        }
-        
-        // Envia o áudio
-        try {
-          socket.send(pcm.buffer);
-        } catch (err) {
-          console.error("[AUDIO] Erro ao enviar:", err);
-        }
+
+        socket.send(pcm.buffer);
+      } catch (err) {
+        console.error('[AUDIO] Erro no onaudioprocess:', err);
       }
     };
 
     return true;
   } catch (error) {
-    console.error("[AUDIO] Erro no processamento:", error);
+    console.error('[AUDIO] Erro no processamento:', error);
     updateStatus('ERROR', { error });
     return false;
   }
@@ -177,27 +233,24 @@ async function detectAudioSettings() {
   try {
     updateStatus('SAMPLE_RATE_DETECTION');
     
-    // 1. Obtém o stream de áudio
     stream = await navigator.mediaDevices.getUserMedia({
       audio: {
         channelCount: 1,
         echoCancellation: false,
         noiseSuppression: false,
         autoGainControl: false,
-        sampleRate: { ideal: 48000 } // Sugere a melhor taxa
+        sampleRate: { ideal: 48000 }
       },
       video: false
     });
 
-    // 2. Detecta o sample rate usando contexto temporário
+    // Técnica para detectar o sample rate real do dispositivo
     const tempContext = new (window.AudioContext || window.webkitAudioContext)();
     const detectedSampleRate = tempContext.sampleRate;
     await tempContext.close();
     
-    // 3. Cria o contexto definitivo
     audioContext = new AudioContext({ sampleRate: detectedSampleRate });
     
-    // Exibe informações
     sampleRateInfo.textContent = `Taxa de amostragem: ${audioContext.sampleRate}Hz`;
     console.log("[AUDIO] Sample rate detectado:", audioContext.sampleRate);
     
@@ -209,23 +262,19 @@ async function detectAudioSettings() {
   }
 }
 
-// Inicia a gravação e transmissão
+// Fluxo principal com tratamento de erros e retentativas automáticas
 async function startRecording() {
   try {
     startBtn.disabled = true;
     stopBtn.disabled = false;
 
-    // 1. Detecta configurações de áudio antes (pra garantir audioContext pronto)
     const settingsDetected = await detectAudioSettings();
     if (!settingsDetected) throw new Error("Falha na detecção de áudio");
 
-    // 2. Conecta ao WebSocket
     await connectWebSocket();
 
-    // 3. Envia metadados (com audioContext já disponível)
     sendAudioMetadata();
 
-    // 4. Configura o processamento de áudio
     const audioStarted = await setupAudioProcessing();
     if (!audioStarted) throw new Error("Falha no processamento de áudio");
 
@@ -247,12 +296,10 @@ async function startRecording() {
   }
 }
 
-
-// Para a gravação e limpa recursos
+// Limpeza segura de todos os recursos
 function stopRecording() {
   console.log("[APP] Parando gravação...");
   
-  // Limpa WebSocket
   if (socket) {
     if (socket.metadataInterval) {
       clearInterval(socket.metadataInterval);
@@ -262,25 +309,21 @@ function stopRecording() {
     socket = null;
   }
 
-  // Limpa processamento de áudio
   if (processor) {
     processor.disconnect();
     processor = null;
   }
   
-  // Limpa stream de mídia
   if (stream) {
     stream.getTracks().forEach(track => track.stop());
     stream = null;
   }
   
-  // Limpa contexto de áudio
   if (audioContext) {
     audioContext.close().catch(console.error);
     audioContext = null;
   }
 
-  // Atualiza UI
   updateStatus('DISCONNECTED');
   startBtn.disabled = false;
   stopBtn.disabled = true;
@@ -291,17 +334,15 @@ function stopRecording() {
 startBtn.addEventListener('click', startRecording);
 stopBtn.addEventListener('click', stopRecording);
 
-// Limpeza ao sair da página
 window.addEventListener('beforeunload', stopRecording);
 window.addEventListener('pagehide', stopRecording);
 
-// Tratamento de erros globais
 window.addEventListener('error', (event) => {
   console.error("[GLOBAL] Erro não capturado:", event.error);
   updateStatus('ERROR', { error: event.error });
 });
 
-// Verificação inicial de suporte
+// Verificação de suporte às APIs necessárias
 if (!navigator.mediaDevices?.getUserMedia) {
   updateStatus('ERROR', { error: "API de mídia não suportada" });
   startBtn.disabled = true;
@@ -312,5 +353,4 @@ if (!window.WebSocket) {
   startBtn.disabled = true;
 }
 
-// Inicialização
 updateStatus('INITIAL');
