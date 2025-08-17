@@ -83,7 +83,7 @@ function setupWebSocket(ws) {
         
         ffmpeg = spawn('ffmpeg', [
             '-f', 's16le',
-            '-ar', String(sampleRate),
+            '-ar', String(sampleRate), 
             '-ac', '1',
             '-i', 'pipe:0',
             '-f', 's16le',
@@ -132,10 +132,10 @@ function setupWebSocket(ws) {
         }
     }, METADATA_WAIT_TIMEOUT);
 
-    // Inicia o heartbeat de debug
+    /* Inicia o heartbeat de debug
     debugInterval = setInterval(() => {
         if (connectionAlive) console.log('[STATUS] Connection alive, sample rate:', inputSampleRate || 'waiting...');
-    }, 10000);
+    }, 10000); */
 
     ws.on('message', (data) => {        
         // Se metadados já foram recebidos, assume que é áudio e otimiza
