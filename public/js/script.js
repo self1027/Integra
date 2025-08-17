@@ -1,4 +1,5 @@
-function patchVLibrasComGloss(onGlossEndCallback) { //Permite acessar gloss:end para saber quando acabou a interpretação e chamar prox elemento do array
+function patchVLibrasComGloss(onGlossEndCallback) { 
+  // Permite acessar gloss:end para saber quando acabou a interpretação e chamar prox elemento da fila
   if (!window.plugin || !window.plugin.player) {
     setTimeout(() => patchVLibrasComGloss(onGlossEndCallback), 500);
     return;
@@ -70,26 +71,35 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 
+/* ---------------------------
+   BLOCO DA FILA SIMPLIFICADA
+----------------------------*/
 const filaFrases = [];
 let lendo = false;
 
 function iniciarVLibrasAutomatico() {
-  if (lendo || filaFrases.length === 0 || !window.plugin?.player) return;
+  if (lendo || filaFrases.length === 0) return;
 
-  const frase = filaFrases[0];
+  if (!window.plugin?.player) {
+    // player ainda não pronto → tenta de novo
+    setTimeout(iniciarVLibrasAutomatico, 300);
+    return;
+  }
+
   lendo = true;
-  window.plugin.player.translate(frase);
+  window.plugin.player.translate(filaFrases[0]);
 }
 
 patchVLibrasComGloss(() => {
-  filaFrases.shift();
-  lendo = false;
-  iniciarVLibrasAutomatico();
+  filaFrases.shift();     // remove a frase que acabou
+  lendo = false;          // libera para próxima
+  iniciarVLibrasAutomatico(); // tenta próxima
 });
 
 window.adicionarFraseNova = function(texto) {
-  if (texto && typeof texto === 'string' && texto.trim() !== '') {
+  if (typeof texto === 'string' && texto.trim()) {
+    const estavaVazia = filaFrases.length === 0;
     filaFrases.push(texto.trim());
-    iniciarVLibrasAutomatico();
+    if (estavaVazia) iniciarVLibrasAutomatico();
   }
 };
