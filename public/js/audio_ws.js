@@ -114,8 +114,8 @@ async function connectWebSocket() {
     socket.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data);
-        if (msg.tipo === 'frase' && typeof window.adicionarFraseNova === 'function') {
-          window.adicionarFraseNova(msg.texto);
+        if (msg.tipo === 'frase' && typeof window.addNewPhrase === 'function') {
+          window.addNewPhrase(msg.texto);
         }
       } catch (error) {
         console.error("[WS] Erro ao processar mensagem:", error);
