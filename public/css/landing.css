@@ -34,8 +34,9 @@ body {
 }
 
 .logo {
-  max-width: 120px;
+  max-width: 200px;
   margin: 0 auto 1.5rem;
+  height: auto;
 }
 
 h1 {
