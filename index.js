@@ -5,6 +5,7 @@ const https = require('https');
 const fs = require('fs');
 const { WebSocketServerManager } = require('./wsServer/websocket');
 const { SSL_OPTIONS, HTTP_PORT, HTTPS_PORT, HTTP_REDIRECT_PORT } = require('./config');
+require('dotenv').config();
 
 const app = express();
 app.use(express.static(path.join(__dirname, 'public')));

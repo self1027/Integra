@@ -24,11 +24,19 @@
     <h1>Mãos que Falam</h1>
     <p class="subtitle">Solução de acessibilidade com tradução de áudio para Libras em tempo real</p>
 
-    <a href="/app" class="btn">
-      <i class="fas fa-sign-in-alt"></i>
-      Acessar Tradutor
-      <span>Versão única para todos os dispositivos</span>
-    </a>
+    <div class="btn-group">
+      <a href="/app?engine=vosk" class="btn">
+        <i class="fas fa-microphone"></i>
+        Usar Vosk
+        <span>Processamento local</span>
+      </a>
+
+      <a href="/app?engine=gstt" class="btn">
+        <i class="fas fa-cloud"></i>
+        Usar Google STT
+        <span>Mais precisão (nuvem)</span>
+      </a>
+    </div>
 
     <div class="footer">
       <p>&copy; 2025 Mãos que Falam. Todos os direitos reservados.</p>

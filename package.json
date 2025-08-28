@@ -10,6 +10,8 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
+    "@google-cloud/speech": "^7.2.0",
+    "dotenv": "^17.2.1",
     "express": "^5.1.0",
     "express-ws": "^5.0.2",
     "ffi-napi": "^4.0.3",

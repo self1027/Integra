@@ -3,3 +3,5 @@
 /vosk-model-small-pt-0.3/
 /cert.pem
 /key.pem
+/.env
+/gcp-speech-key.json
