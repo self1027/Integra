@@ -50,10 +50,21 @@ p.subtitle {
   margin-bottom: 2rem;
 }
 
+.btn-group {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
 .btn {
-  display: inline-flex;
+  flex: 1;
+  min-width: 200px;
+  max-width: 300px;
+  display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   padding: 1.2rem 2rem;
   border-radius: 10px;
   background-color: var(--primary);
@@ -62,8 +73,10 @@ p.subtitle {
   text-decoration: none;
   transition: 0.3s ease;
   box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
-  max-width: 300px;
-  margin: 0 auto;
+}
+
+.btn-english {
+  margin-top: 0px;
 }
 
 .btn i {
@@ -95,5 +108,14 @@ p.subtitle {
 
   .container {
     padding: 2rem 1.5rem;
+  }
+
+  .btn-group {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .btn-english {
+    margin-top: 10px;
   }
 }

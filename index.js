@@ -10,7 +10,15 @@ require('dotenv').config();
 const app = express();
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/', (_, res) => res.sendFile(path.join(__dirname, 'public', 'landpage.html')));
-app.get('/app', (_, res) => res.sendFile(path.join(__dirname, 'public', 'app.html')));
+app.get("/app", (req, res) => {
+  const engine = req.query.engine;
+
+  if (engine === "english") {
+    res.sendFile(path.join(__dirname, "public", "english.html"));
+  } else {
+    res.sendFile(path.join(__dirname, "public", "app.html"));
+  }
+});
 
 const httpServer = http.createServer(app);
 const httpsServer = https.createServer(SSL_OPTIONS, app);

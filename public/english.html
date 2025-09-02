@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Aulas de inglês com reconhecimento de voz e tradução">
+  <title>MQF - English Practice</title>
+  
+  <link rel="apple-touch-icon" sizes="180x180" href="./img/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="./img/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="./img/favicon/favicon-16x16.png">
+  <link rel="manifest" href="./img/favicon/site.webmanifest">
+  <link rel="icon" type="image/x-icon" href="./img/favicon/favicon.ico">
+  <link rel="shortcut icon" href="./img/favicon/favicon.ico">
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <link rel="stylesheet" href="./css/VLibras.css">
+  <link rel="stylesheet" href="./css/english.css">
+</head>
+<body>
+  <div vw class="enabled">
+    <div vw-access-button class="permanently-hidden"></div>
+    <div vw-plugin-wrapper>
+      <div class="vw-plugin-top-wrapper"></div>
+    </div>
+  </div>
+
+  <header class="header">
+    <div class="controls">
+      <button id="startBtn" class="btn btn-primary">
+        <i class="fas fa-play"></i>
+        Conectar
+      </button>
+      <button id="stopBtn" class="btn btn-danger" disabled>
+        <i class="fas fa-stop"></i>
+        Desconectar
+      </button>
+    </div>
+    
+    <div id="status" class="status disconnected">
+      <i class="fas fa-circle"></i>
+      Status: Desconectado
+    </div>
+  </header>
+
+  <div class="back-link-container">
+    <a href="/" class="back-link">
+      <i class="fas fa-arrow-left"></i>
+      Voltar
+    </a>
+  </div>
+
+  <main class="content">
+    <h2 class="section-title">Frases Detectadas</h2>
+    <div id="phrases-container" class="phrases-container">
+      <div class="phrase-card">
+        <p class="detected-text">Hello, how are you?</p>
+        <button class="btn btn-secondary toggle-translation">Ver tradução</button>
+        <p class="translation">Olá, como você está?</p>
+      </div>
+      <div class="phrase-card">
+        <p class="detected-text">Hoje está fazendo muito calor.</p>
+      </div>
+      <div class="phrase-card">
+        <p class="detected-text">Can you help me with this exercise?</p>
+        <button class="btn btn-secondary toggle-translation">Ver tradução</button>
+        <p class="translation">Você pode me ajudar com este exercício?</p>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    document.querySelectorAll('.toggle-translation').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const translation = btn.nextElementSibling
+        translation.classList.toggle('visible')
+        btn.textContent = translation.classList.contains('visible') ? 'Ocultar tradução' : 'Ver tradução'
+      })
+    })
+  </script>
+  <script src="./js/audio_ws.js"></script>
+</body>
+</html>
