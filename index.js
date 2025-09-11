@@ -4,8 +4,9 @@ const bodyParser = require('body-parser')
 const https = require('https');
 const { WebSocketServerManager } = require('./wsServer/websocket');
 const { SSL_OPTIONS, HTTP_PORT, HTTPS_PORT, HTTP_REDIRECT_PORT } = require('./config');
-const lesson = require('./routes/lessons.js')
+const ADM = require('./routes/ADM.js')
 const MQF = require('./routes/MQF.js')
+const INTEGRA = require('./routes/integra.js')
 require('dotenv').config();
 
 const app = express();
@@ -15,7 +16,9 @@ app.use(express.static('public'))
 app.use(bodyParser.urlencoded({extended:false}))
 app.use(bodyParser.json())
 
+app.use('/', INTEGRA)
 app.use('/MQF', MQF)
+app.use('/ADM', ADM)
 
 
 const httpServer = http.createServer(app);

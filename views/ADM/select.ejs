@@ -14,7 +14,7 @@
   <link rel="shortcut icon" href="./img/favicon/favicon.ico">
 
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" /> 
-  <link rel="stylesheet" href="./css/select-language.css">
+  <link rel="stylesheet" href="./css/ADM/select-language.css">
 
 </head>
 <body>
@@ -52,8 +52,15 @@
     </div>
 
     <div class="footer">
-      <p>&copy; 2025 MQF. Todos os direitos reservados.</p>
+      <p>&copy; 2025 Além das Mãos. Todos os direitos reservados.</p>
     </div>
+  </div>
+
+  <div class="back-link-container">
+    <a href="/" class="back-link">
+      <i class="fas fa-arrow-left"></i>
+      Voltar
+    </a>
   </div>
 
 <script>
@@ -141,7 +148,7 @@
     const secondaryBcp47 = secondaryInput.dataset.bcp47;
 
     // Redireciona para a aula com os parâmetros
-    window.location.href = `/lesson?main=${mainBcp47}&secondary=${secondaryBcp47}`;
+    window.location.href = `/ADM/app?main=${mainBcp47}&secondary=${secondaryBcp47}`;
   });
 
   loadLanguages();

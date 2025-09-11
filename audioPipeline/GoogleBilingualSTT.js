@@ -1,0 +1,1 @@
+//TODO: implementar dual lang transcription
