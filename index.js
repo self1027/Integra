@@ -1,24 +1,22 @@
 const express = require('express');
-const path = require('path');
 const http = require('http');
+const bodyParser = require('body-parser')
 const https = require('https');
-const fs = require('fs');
 const { WebSocketServerManager } = require('./wsServer/websocket');
 const { SSL_OPTIONS, HTTP_PORT, HTTPS_PORT, HTTP_REDIRECT_PORT } = require('./config');
+const lesson = require('./routes/lessons.js')
+const MQF = require('./routes/MQF.js')
 require('dotenv').config();
 
 const app = express();
-app.use(express.static(path.join(__dirname, 'public')));
-app.get('/', (_, res) => res.sendFile(path.join(__dirname, 'public', 'landpage.html')));
-app.get("/app", (req, res) => {
-  const engine = req.query.engine;
+app.set('view engine', 'ejs');
+app.use(express.static('public'))
 
-  if (engine === "english") {
-    res.sendFile(path.join(__dirname, "public", "english.html"));
-  } else {
-    res.sendFile(path.join(__dirname, "public", "app.html"));
-  }
-});
+app.use(bodyParser.urlencoded({extended:false}))
+app.use(bodyParser.json())
+
+app.use('/MQF', MQF)
+
 
 const httpServer = http.createServer(app);
 const httpsServer = https.createServer(SSL_OPTIONS, app);

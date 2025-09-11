@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="MQF - Seletor de Idiomas" />
+  <title>MQF - Selecione os Idiomas</title>
+
+  <link rel="apple-touch-icon" sizes="180x180" href="./img/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="./img/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="./img/favicon/favicon-16x16.png">
+  <link rel="manifest" href="./img/favicon/site.webmanifest">
+  <link rel="icon" type="image/x-icon" href="./img/favicon/favicon.ico">
+  <link rel="shortcut icon" href="./img/favicon/favicon.ico">
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" /> 
+  <link rel="stylesheet" href="./css/select-language.css">
+
+</head>
+<body>
+  <div class="container">
+    <a href="./">
+      <img src="./img/logo-full.png" alt="Logo MQF" class="logo" />
+    </a>
+    <h1>Selecione os Idiomas</h1>
+    <p class="subtitle">Escolha a língua principal e a língua secundária</p>
+
+    <form id="languageForm" onsubmit="return false;">
+      <div class="form-group">
+        <label for="mainLanguage">Idioma Nativo</label>
+        <div class="dropdown-wrapper">
+          <input type="text" id="mainLanguage" class="dropdown-input" placeholder="Escolha o idioma" required autocomplete="off">
+          <ul class="dropdown-list" id="mainOptions"></ul>
+        </div>
+      </div>
+      <br>
+      <div class="form-group">
+        <label for="secondaryLanguage">Idioma de Estudo</label>
+        <div class="dropdown-wrapper">
+          <input type="text" id="secondaryLanguage" class="dropdown-input" placeholder="Escolha o idioma" required autocomplete="off">
+          <ul class="dropdown-list" id="secondaryOptions"></ul>
+        </div>
+      </div>
+    </form>
+
+    <br>
+    <div class="btn-group">
+      <a id="startLesson" class="btn">
+          <i class="fas fa-play"></i>
+          Iniciar Aula
+      </a>
+    </div>
+
+    <div class="footer">
+      <p>&copy; 2025 MQF. Todos os direitos reservados.</p>
+    </div>
+  </div>
+
+<script>
+  async function loadLanguages() {
+    try {
+      const res = await fetch('../languages.json');
+      const languages = await res.json();
+
+      setupDropdown('mainLanguage', 'mainOptions', languages);
+      setupDropdown('secondaryLanguage', 'secondaryOptions', languages);
+
+    } catch (err) {
+      console.error('Erro ao carregar idiomas:', err);
+    }
+  }
+
+  function setupDropdown(inputId, listId, options) {
+    const input = document.getElementById(inputId);
+    const list = document.getElementById(listId);
+    let selectedIndex = -1;
+
+    function renderList(filter = '') {
+      list.innerHTML = '';
+      const filtered = options.filter(l => l.name.toLowerCase().includes(filter.toLowerCase()));
+      filtered.forEach((l, i) => {
+        const li = document.createElement('li');
+        li.textContent = l.name;
+        li.dataset.bcp47 = l.bcp47;
+        li.addEventListener('click', () => {
+          input.value = l.name;
+          input.dataset.bcp47 = l.bcp47;
+          list.style.display = 'none';
+        });
+        list.appendChild(li);
+      });
+      list.style.display = filtered.length ? 'block' : 'none';
+      selectedIndex = -1;
+    }
+
+    input.addEventListener('input', e => renderList(e.target.value));
+    input.addEventListener('focus', () => renderList(input.value));
+    input.addEventListener('click', e => e.stopPropagation());
+
+    // Navegação via teclado
+    input.addEventListener('keydown', e => {
+      const items = Array.from(list.children);
+      if (!items.length) return;
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        selectedIndex = (selectedIndex + 1) % items.length;
+        updateHighlight(items);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        selectedIndex = (selectedIndex - 1 + items.length) % items.length;
+        updateHighlight(items);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (selectedIndex >= 0) {
+          const li = items[selectedIndex];
+          input.value = li.textContent;
+          input.dataset.bcp47 = li.dataset.bcp47;
+          list.style.display = 'none';
+        }
+      }
+    });
+
+    function updateHighlight(items) {
+      items.forEach((li, i) => li.style.background = i === selectedIndex ? '#f0f0f0' : '');
+    }
+
+    document.addEventListener('click', () => list.style.display = 'none');
+  }
+
+  document.getElementById('startLesson').addEventListener('click', e => {
+    const mainInput = document.getElementById('mainLanguage');
+    const secondaryInput = document.getElementById('secondaryLanguage');
+
+    if (!mainInput.dataset.bcp47 || !secondaryInput.dataset.bcp47) {
+      alert('Selecione idiomas válidos da lista.');
+      return;
+    }
+
+    const mainBcp47 = mainInput.dataset.bcp47;
+    const secondaryBcp47 = secondaryInput.dataset.bcp47;
+
+    // Redireciona para a aula com os parâmetros
+    window.location.href = `/lesson?main=${mainBcp47}&secondary=${secondaryBcp47}`;
+  });
+
+  loadLanguages();
+</script>
+</body>
+</html>

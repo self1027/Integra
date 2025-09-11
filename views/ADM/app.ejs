@@ -51,33 +51,19 @@
   </div>
 
   <main class="content">
-    <h2 class="section-title">Frases Detectadas</h2>
     <div id="phrases-container" class="phrases-container">
-      <div class="phrase-card">
-        <p class="detected-text">Hello, how are you?</p>
-        <button class="btn btn-secondary toggle-translation">Ver tradução</button>
-        <p class="translation">Olá, como você está?</p>
-      </div>
-      <div class="phrase-card">
-        <p class="detected-text">Hoje está fazendo muito calor.</p>
-      </div>
-      <div class="phrase-card">
-        <p class="detected-text">Can you help me with this exercise?</p>
-        <button class="btn btn-secondary toggle-translation">Ver tradução</button>
-        <p class="translation">Você pode me ajudar com este exercício?</p>
-      </div>
     </div>
   </main>
 
   <script>
-    document.querySelectorAll('.toggle-translation').forEach(btn => {
+    document.querySelectorAll('.btn-translate').forEach(btn => {
       btn.addEventListener('click', () => {
-        const translation = btn.nextElementSibling
-        translation.classList.toggle('visible')
-        btn.textContent = translation.classList.contains('visible') ? 'Ocultar tradução' : 'Ver tradução'
-      })
-    })
+        const translation = btn.parentElement.querySelector('.translation');
+        translation.classList.toggle('visible');
+      });
+    });
   </script>
-  <script src="./js/audio_ws.js"></script>
+  <script src="./js/lessons/audio_ws.js"></script>
+  <script src="./js/lessons/lessonFeatures.js"></script>
 </body>
 </html>

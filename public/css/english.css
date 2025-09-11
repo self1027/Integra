@@ -82,43 +82,51 @@ body {
 .phrase-card {
   background: white;
   border-radius: 12px;
-  padding: 1rem;
+  padding: 1rem 2.5rem 1rem 1rem; /* espaço à direita para o botão */
   box-shadow: 0 4px 10px rgba(0,0,0,0.08);
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+  display: block; /* usar block para centralizar texto verticalmente */
+  position: relative;
 }
 
 .detected-text {
   font-size: 1rem;
   font-weight: 600;
   color: var(--text);
+  text-align: center;
+  margin-bottom: 0.5rem;
 }
 
 .translation {
   font-size: 0.95rem;
   color: var(--muted);
   display: none;
+  text-align: center;
+  margin-top: 0.3rem;
 }
 
 .translation.visible {
   display: block;
 }
 
-.section-title {
-  text-align: center;
-  margin-bottom: 1rem;
-  color: var(--primary-dark);
-  font-size: 1.3rem;
-  font-weight: 700;
-}
-
-.btn-secondary {
+.btn-translate {
   background: var(--primary);
   color: white;
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  font-size: 16px;
 }
 
-.btn-secondary:hover {
+.btn-translate:hover {
   background: var(--primary-dark);
 }
 

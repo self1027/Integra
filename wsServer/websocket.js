@@ -1,8 +1,8 @@
 const { WebSocketServer } = require('ws');
-const ffmpeg = require('../audioPipeline/ffmpeg');
-const voskRecognizer = require('../audioPipeline/voskRecognizer');
-const gstt = require('../audioPipeline/gsttPipeline');
-const { MODEL_PATH, TARGET_SAMPLE_RATE, FALLBACK_SAMPLE_RATE, METADATA_WAIT_TIMEOUT } = require('../config');
+const { Ffmpeg } = require('../audioPipeline/Ffmpeg.js');
+const { VoskSTT } = require('../audioPipeline/VoskSTT.js');
+const { GoogleSTT } = require('../audioPipeline/GoogleSTT.js');
+const { MODEL_PATH, TARGET_SAMPLE_RATE, FALLBACK_SAMPLE_RATE, METADATA_WAIT_TIMEOUT } = require('../config.js');
 const vosk = require('vosk');
 const fs = require('fs');
 
@@ -11,123 +11,149 @@ if (!fs.existsSync(MODEL_PATH)) {
   process.exit(1); 
 }
 
+// The Vosk model is instantiated once, as it is a heavy object.
 const voskModel = new vosk.Model(MODEL_PATH);
 vosk.setLogLevel(0);
 
-const WebSocketServerManager = {
-  init({ httpServer, httpsServer }) {
+/**
+ * A class to manage the WebSocket server, handling incoming connections
+ * and orchestrating the audio transcription pipeline.
+ */
+class WebSocketServerManager {
+  static init({ httpServer, httpsServer }) {
     [httpServer, httpsServer].forEach(server => {
-      new WebSocketServer({ server }).on('connection', wsServerHandler);
+      new WebSocketServer({ server }).on('connection', (ws, req) => {
+        this._wsServerHandler(ws, req);
+      });
     });
   }
-};
 
-function wsServerHandler(ws, req) {
-  let isPipelineInitialized = false;
-  let engine = 'vosk'; // padrão
-  let audioBuffer = [];
-  let inputSampleRate = FALLBACK_SAMPLE_RATE;
+  static _wsServerHandler(ws, req) {
+    let isPipelineInitialized = false;
+    let engine = 'vosk';
+    let audioBuffer = [];
+    let inputSampleRate = FALLBACK_SAMPLE_RATE;
+    let ffmpegInstance = null;
+    let sttInstance = null;
 
-  // Detecta o engine pela URL/query
-  const urlParams = new URL(req.url, `http://${req.headers.host}`);
-  if (urlParams.searchParams.has('engine')) {
-    engine = urlParams.searchParams.get('engine');
-  }
-
-  const metadataTimeout = setTimeout(() => {
-    if (!isPipelineInitialized) {
-      initPipeline(FALLBACK_SAMPLE_RATE);
-    }
-  }, METADATA_WAIT_TIMEOUT);
-
-  ws.on('message', (data) => {    
-    if (isPipelineInitialized) {
-      return ffmpeg.pushAudio(data);
+    const urlParams = new URL(req.url, `http://${req.headers.host}`);
+    if (urlParams.searchParams.has('engine')) {
+      engine = urlParams.searchParams.get('engine');
     }
 
-    const msg = tryParseJson(data);
-
-    // Processa metadados de áudio
-    if (msg?.type === 'audio_metadata' && msg.sampleRate) {
-      clearTimeout(metadataTimeout);
-      inputSampleRate = msg.sampleRate;
-      initPipeline(inputSampleRate);
-      return;
-    }
-
-    // Processa buffer de áudio recebido antes da inicialização
-    if (Buffer.isBuffer(data)) {
-      clearTimeout(metadataTimeout);
-      audioBuffer.push(data);
-      
+    const metadataTimeout = setTimeout(() => {
       if (!isPipelineInitialized) {
-        initPipeline(inputSampleRate);
+        initPipeline(FALLBACK_SAMPLE_RATE);
       }
-    }
-  });
+    }, METADATA_WAIT_TIMEOUT);
 
-  ws.on('close', cleanup);
-  ws.on('error', cleanup);
+    ws.on('message', (data) => {    
+      if (isPipelineInitialized) {
+        ffmpegInstance.pushAudio(data);
+        return;
+      }
 
-  function initPipeline(sampleRate) {
-    if (isPipelineInitialized) return;
+      const msg = tryParseJson(data);
 
-    isPipelineInitialized = true;
+      if (msg?.type === 'audio_metadata' && msg.sampleRate) {
+        clearTimeout(metadataTimeout);
+        inputSampleRate = msg.sampleRate;
+        initPipeline(inputSampleRate);
+        return;
+      }
 
-    if (engine === 'vosk') {
-      voskRecognizer.init({ model: voskModel, sampleRate: TARGET_SAMPLE_RATE });
-    } else if (engine === 'gstt') {
-      gstt.init({
-        sampleRate: TARGET_SAMPLE_RATE,
-        languageCode: 'pt-BR',
-        onTranscription: (text) => {
-          try {
-            ws.send(JSON.stringify({ tipo: 'frase', texto: text }));
-          } catch (error) {
-            console.error('[WS] Erro ao enviar transcrição:', error);
+      if (Buffer.isBuffer(data)) {
+        clearTimeout(metadataTimeout);
+        audioBuffer.push(data);
+        
+        if (!isPipelineInitialized) {
+          initPipeline(inputSampleRate);
+        }
+      }
+    });
+
+    ws.on('close', cleanup);
+    ws.on('error', cleanup);
+
+    function initPipeline(sampleRate) {
+      if (isPipelineInitialized) return;
+
+      isPipelineInitialized = true;
+      console.log(`[WS] Initializing pipeline with engine: ${engine}, sample rate: ${sampleRate}`);
+
+      // Create STT instance first
+      if (engine === 'vosk') {
+        sttInstance = new VoskSTT({ 
+          model: voskModel, 
+          sampleRate: TARGET_SAMPLE_RATE,
+          onTranscription: (text) => {
+            try {
+              ws.send(JSON.stringify({ tipo: 'frase', texto: text }));
+            } catch (error) {
+              console.error('[WS] Erro ao enviar transcrição (Vosk):', error);
+            }
           }
+        });
+      } else if (engine === 'gstt') {
+        sttInstance = new GoogleSTT({
+          sampleRate: TARGET_SAMPLE_RATE,
+          languageCode: 'pt-BR',
+          onTranscription: (text) => {
+            try {
+              ws.send(JSON.stringify({ tipo: 'frase', texto: text }));
+            } catch (error) {
+              console.error('[WS] Erro ao enviar transcrição (GSTT):', error);
+            }
+          }
+        });
+      }
+
+      // Create and start FFmpeg instance
+      ffmpegInstance = new Ffmpeg({
+        inputSampleRate: sampleRate,
+        outputSampleRate: TARGET_SAMPLE_RATE
+      });
+
+      ffmpegInstance.start({
+        onData: (pcm) => {
+          if (sttInstance) {
+            sttInstance.pushAudio(pcm);
+          }
+        },
+        onReady: () => {
+          console.log('[WS] FFmpeg is ready');
+          // Process buffered audio after FFmpeg is ready
+          if (audioBuffer.length > 0) {
+            console.log(`[WS] Processing ${audioBuffer.length} buffered chunks`);
+            // Process buffered audio
+            audioBuffer.forEach(chunk => {
+              ffmpegInstance.pushAudio(chunk);
+            });
+            audioBuffer = [];
+          }
+        },
+        onError: (error) => {
+          console.error('[WS] FFmpeg error:', error);
+          cleanup();
         }
       });
     }
 
-    ffmpeg.start({
-      inputSampleRate: sampleRate,
-      outputSampleRate: TARGET_SAMPLE_RATE,
-      onData: (pcm) => {
-        if (engine === 'vosk') {
-          const text = voskRecognizer.acceptAudio(pcm);
-          if (text) {
-            try {
-              ws.send(JSON.stringify({ tipo: 'frase', texto: text }));
-            } catch (error) {
-              console.error('[WS] Erro ao enviar transcrição:', error);
-            }
-          }
-        } else if (engine === 'gstt') {
-          gstt.acceptAudio(pcm);
-        }
+    function cleanup() {
+      console.log('[WS] Cleaning up');
+      clearTimeout(metadataTimeout);
+      
+      if (ffmpegInstance) {
+        ffmpegInstance.stop();
       }
-    });
-    
-    // Processa buffer de áudio armazenado
-    setTimeout(() => {
-      if (audioBuffer.length > 0) {
-        audioBuffer.forEach(chunk => {
-          if (ffmpeg.pushAudio) {
-            ffmpeg.pushAudio(chunk);
-          }
-        });
-        audioBuffer = [];
+      
+      if (sttInstance && sttInstance.stop) {
+        sttInstance.stop();
       }
-    }, 100);
-  }
-
-  function cleanup() {
-    clearTimeout(metadataTimeout);
-    ffmpeg.stop();
-    voskRecognizer.stop();
-    gstt.stop();
-    isPipelineInitialized = false;
+      
+      isPipelineInitialized = false;
+      audioBuffer = [];
+    }
   }
 }
 
