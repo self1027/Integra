@@ -4,27 +4,19 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Aulas de inglês com reconhecimento de voz e tradução">
-  <title>MQF - English Practice</title>
+  <title>Integra - ADM</title>
   
-  <link rel="apple-touch-icon" sizes="180x180" href="./img/favicon/apple-touch-icon.png">
-  <link rel="icon" type="image/png" sizes="32x32" href="./img/favicon/favicon-32x32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="./img/favicon/favicon-16x16.png">
-  <link rel="manifest" href="./img/favicon/site.webmanifest">
-  <link rel="icon" type="image/x-icon" href="./img/favicon/favicon.ico">
-  <link rel="shortcut icon" href="./img/favicon/favicon.ico">
-
+  <link rel="icon" type="image/png" sizes="96x96" href="/img/ADM/favicon/favicon-96x96.png" />
+  <link rel="icon" type="image/svg+xml" href="/img/ADM/favicon/favicon.svg" />
+  <link rel="shortcut icon" href="/img/ADM/favicon/favicon.ico" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/img/ADM/favicon/apple-touch-icon.png" />
+  <link rel="manifest" href="/img/ADM/favicon/site.webmanifest" />
+  
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link rel="stylesheet" href="/css/VLibras.css">
   <link rel="stylesheet" href="/css/english.css">
 </head>
 <body>
-  <div vw class="enabled">
-    <div vw-access-button class="permanently-hidden"></div>
-    <div vw-plugin-wrapper>
-      <div class="vw-plugin-top-wrapper"></div>
-    </div>
-  </div>
-
   <header class="header">
     <div class="controls">
       <button id="startBtn" class="btn btn-primary">
@@ -51,9 +43,22 @@
   </div>
 
   <main class="content">
-    <div id="phrases-container" class="phrases-container">
-    </div>
+    <div id="phrases-container" class="phrases-container"></div>
   </main>
+
+  <!-- Container do VLibras (apenas UMA vez) -->
+  <div vw class="enabled">
+    <div vw-access-button class="active"></div>
+    <div vw-plugin-wrapper>
+      <div class="vw-plugin-top-wrapper"></div>
+    </div>
+  </div>
+
+  <!-- Script do VLibras -->
+  <script src="https://vlibras.gov.br/app/vlibras-plugin.js"></script>
+  <script>
+    new window.VLibras.Widget('https://vlibras.gov.br/app');
+  </script>
 
   <script>
     document.querySelectorAll('.btn-translate').forEach(btn => {

@@ -1,4 +1,4 @@
-// VLibras phrase queue system
+// vLibrasQueue.js
 export function initVLibrasQueue(patchVLibrasGlossEnd) {
   const phraseQueue = [];
   let isReading = false;
@@ -10,7 +10,10 @@ export function initVLibrasQueue(patchVLibrasGlossEnd) {
       return;
     }
     isReading = true;
-    window.plugin.player.translate(phraseQueue[0]);
+    
+    // Get the raw text from the phrase object
+    const phraseObj = phraseQueue[0];
+    window.plugin.player.translate(phraseObj.raw);
   }
 
   patchVLibrasGlossEnd(() => {
@@ -19,10 +22,26 @@ export function initVLibrasQueue(patchVLibrasGlossEnd) {
     startVLibrasQueue();
   });
 
-  window.addNewPhrase = function(text) {
-    if (typeof text === 'string' && text.trim()) {
+  window.addNewPhrase = function(phraseData) {
+    // Handle both string (backward compatibility) and object formats
+    let text = '';
+    
+    if (typeof phraseData === 'string') {
+      text = phraseData.trim();
+    } else if (typeof phraseData === 'object' && phraseData.raw) {
+      text = phraseData.raw.trim();
+    }
+    
+    if (text) {
       const wasEmpty = phraseQueue.length === 0;
-      phraseQueue.push(text.trim());
+      
+      // Store the full phrase data object if available, otherwise just the text
+      if (typeof phraseData === 'object') {
+        phraseQueue.push(phraseData);
+      } else {
+        phraseQueue.push({ raw: text });
+      }
+      
       if (wasEmpty) startVLibrasQueue();
     }
   };

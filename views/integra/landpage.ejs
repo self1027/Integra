@@ -13,6 +13,45 @@
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" /> 
     <link rel="stylesheet" href="/css/integra/landing.css">
+    <style>
+        .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 18px rgba(0,0,0,0.2);
+        }
+
+        .btn-logo {
+        width: 150px;
+        height: 150px;
+        object-fit: contain;
+        border-radius: 12px;
+        padding: 8px;
+        flex-shrink: 0;
+        
+        /* Adições para o background box */
+        background-color: #3aa8f059; /* Cor de fundo cinza claro */
+        /*box-shadow: 0 4px 12px rgba(0,0,0,0.1); Sombra suave para profundidade */
+        }
+
+        .btn-text span {
+        display: block;       /* força a quebra de linha */
+        white-space: normal;  /* permite quebras automáticas */
+        font-size: 14px;
+        color: #555;
+        margin-top: 4px;      /* espaçamento em relação ao título */
+        }
+
+
+        .btn-text i {
+        margin-right: 8px;
+        color: #0073e6;
+        font-size: 20px;
+        }
+
+        .btn-text span {
+        font-size: 14px;
+        color: #555;
+        }
+    </style>
 </head>
 
 <body>
@@ -23,17 +62,24 @@
         
         <div class="btn-group">
             <a href="/MQF" class="btn" id="mqf-btn">
-                <i class="fas fa-hands"></i>
+                <img src="/img/MQF/logo-full.png" alt="Logo MQF" class="btn-logo">
+                <div class="btn-text">
+                <i></i>
                 Mãos que Falam
                 <span>Tradução de voz para Libras</span>
+                </div>
             </a>
             
             <a href="/ADM" class="btn" id="adm-btn">
-                <i class="fas fa-sign-language"></i>
+                <img src="/img/ADM/logo-full.png" alt="Logo ADM" class="btn-logo">
+                <div class="btn-text">
+                <i></i>
                 Além das Mãos
                 <span>Tradução dupla: voz para texto e Libras</span>
+                </div>
             </a>
         </div>
+
         
         <p class="footer">Integra - Facilitando a comunicação e inclusão</p>
     </div>

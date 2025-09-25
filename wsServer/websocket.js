@@ -2,6 +2,7 @@ const { WebSocketServer } = require('ws');
 const { Ffmpeg } = require('../audioPipeline/Ffmpeg.js');
 const { VoskSTT } = require('../audioPipeline/VoskSTT.js');
 const { GoogleSTT } = require('../audioPipeline/GoogleSTT.js');
+const { GoogleBilingualSTT } = require('../audioPipeline/GoogleBilingualSTT.js');
 const { MODEL_PATH, TARGET_SAMPLE_RATE, FALLBACK_SAMPLE_RATE, METADATA_WAIT_TIMEOUT } = require('../config.js');
 const vosk = require('vosk');
 const fs = require('fs');
@@ -41,6 +42,10 @@ class WebSocketServerManager {
       engine = urlParams.searchParams.get('engine');
     }
 
+    // EXTRACT LANGUAGE PARAMETERS FROM URL
+    const mainLang = urlParams.searchParams.get('main') || 'pt-BR';
+    const secondaryLang = urlParams.searchParams.get('secondary');
+
     const metadataTimeout = setTimeout(() => {
       if (!isPipelineInitialized) {
         initPipeline(FALLBACK_SAMPLE_RATE);
@@ -79,7 +84,7 @@ class WebSocketServerManager {
       if (isPipelineInitialized) return;
 
       isPipelineInitialized = true;
-      console.log(`[WS] Initializing pipeline with engine: ${engine}, sample rate: ${sampleRate}`);
+      console.log(`[WS] Initializing pipeline with engine: ${engine}, sample rate: ${sampleRate}, main: ${mainLang}, secondary: ${secondaryLang || 'none'}`);
 
       // Create STT instance first
       if (engine === 'vosk') {
@@ -95,17 +100,44 @@ class WebSocketServerManager {
           }
         });
       } else if (engine === 'gstt') {
+        // ONLY use bilingual if BOTH languages are specified and different
+        // NO WebSocketServerManager - dentro do initPipeline(), onde cria o GoogleBilingualSTT:
+      if (secondaryLang && mainLang !== secondaryLang) {
+        console.log(`[WS] Using bilingual STT: ${mainLang} + ${secondaryLang}`);
+        
+        sttInstance = new GoogleBilingualSTT({
+          sampleRate: TARGET_SAMPLE_RATE,
+          primaryLanguage: mainLang,
+          secondaryLanguage: secondaryLang,
+          onTranscription: (result) => {
+            try {
+              // ENVIA O OBJETO COMPLETO DIRETAMENTE, sem encapsular
+              ws.send(JSON.stringify({
+                tipo: 'frase-bilingual', // Nova identificação
+                ...result // Spread de todas as propriedades do resultado
+              }));
+            } catch (error) {
+              console.error('[WS] Erro ao enviar transcrição (Bilingual):', error);
+            }
+          }
+        });
+      } else {
+        // GoogleSTT normal (mantém igual)
         sttInstance = new GoogleSTT({
           sampleRate: TARGET_SAMPLE_RATE,
-          languageCode: 'pt-BR',
+          languageCode: mainLang,
           onTranscription: (text) => {
             try {
-              ws.send(JSON.stringify({ tipo: 'frase', texto: text }));
+              ws.send(JSON.stringify({ 
+                tipo: 'frase-simples', 
+                texto: text 
+              }));
             } catch (error) {
               console.error('[WS] Erro ao enviar transcrição (GSTT):', error);
             }
           }
         });
+      }
       }
 
       // Create and start FFmpeg instance
@@ -161,5 +193,5 @@ function tryParseJson(data) {
   if (Buffer.isBuffer(data)) data = data.toString('utf8');
   try { return JSON.parse(data); } catch { return null; }
 }
-
+//TODO: criar classe de tradução e para cada transcrição do ADM tentar tradução, usar string-similarity
 module.exports = { WebSocketServerManager };

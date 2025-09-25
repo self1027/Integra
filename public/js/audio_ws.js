@@ -72,7 +72,7 @@ function setupMetadataHeartbeat() {
   }, METADATA_INTERVAL);
 }
 
-// Conexão WebSocket com tratamento de erros e reconexão
+// Conexão WebSocket com tratamento de erros and reconexão
 async function connectWebSocket() {
   return new Promise((resolve, reject) => {
     updateStatus('CONNECTING');
@@ -84,8 +84,17 @@ async function connectWebSocket() {
     
     const urlParams = new URLSearchParams(window.location.search);
     const engine = urlParams.get("engine") || "vosk";
+    const mainLang = urlParams.get("main") || "pt-BR";
+    const secondaryLang = urlParams.get("secondary");
 
-    socket = new WebSocket(`wss://${window.location.hostname}?engine=${engine}`);
+    // Build WebSocket URL with ALL parameters from the page URL
+    let wsUrl = `wss://${window.location.hostname}?engine=${engine}&main=${encodeURIComponent(mainLang)}`;
+    if (secondaryLang) {
+      wsUrl += `&secondary=${encodeURIComponent(secondaryLang)}`;
+    }
+
+    console.log(`[WS] Connecting to: ${wsUrl}`);
+    socket = new WebSocket(wsUrl);
     socket.binaryType = 'arraybuffer';
 
     socket.onopen = async () => {
@@ -116,9 +125,37 @@ async function connectWebSocket() {
 
     socket.onmessage = (event) => {
       try {
-        const msg = JSON.parse(event.data);
-        if (msg.tipo === 'frase' && typeof window.addNewPhrase === 'function') {
-          window.addNewPhrase(msg.texto);
+        const data = JSON.parse(event.data);
+        console.log('Dados recebidos:', data);
+        
+        // Verifica o tipo de mensagem
+        if (data.tipo === 'frase-bilingual') {
+          // É uma transcrição bilingual - usa o objeto completo
+          window.addNewPhrase({
+            raw: data.raw,
+            translated: data.translated,
+            language: data.language,
+            confidence: data.confidence,
+            isPrimary: data.isPrimary
+          });
+        } else if (data.tipo === 'frase-simples') {
+          // É uma transcrição simples
+          window.addNewPhrase({
+            raw: data.texto,
+            translated: null,
+            language: null,
+            confidence: null,
+            isPrimary: null
+          });
+        } else if (data.tipo === 'frase') {
+          // Formato legado - compatibilidade
+          window.addNewPhrase({
+            raw: data.raw || data.texto,
+            translated: data.translated || null,
+            language: data.language || data.idioma || null,
+            confidence: data.confidence || data.confianca || null,
+            isPrimary: data.isPrimary || null
+          });
         }
       } catch (error) {
         console.error("[WS] Erro ao processar mensagem:", error);

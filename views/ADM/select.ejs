@@ -4,14 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="MQF - Seletor de Idiomas" />
-  <title>MQF - Selecione os Idiomas</title>
+  <title>ADM - Selecione os Idiomas</title>
 
-  <link rel="apple-touch-icon" sizes="180x180" href="./img/favicon/apple-touch-icon.png">
-  <link rel="icon" type="image/png" sizes="32x32" href="./img/favicon/favicon-32x32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="./img/favicon/favicon-16x16.png">
-  <link rel="manifest" href="./img/favicon/site.webmanifest">
-  <link rel="icon" type="image/x-icon" href="./img/favicon/favicon.ico">
-  <link rel="shortcut icon" href="./img/favicon/favicon.ico">
+  <link rel="icon" type="image/png" sizes="96x96" href="/img/ADM/favicon/favicon-96x96.png" />
+  <link rel="icon" type="image/svg+xml" href="/img/ADM/favicon/favicon.svg" />
+  <link rel="shortcut icon" href="/img/ADM/favicon/favicon.ico" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/img/ADM/favicon/apple-touch-icon.png" />
+  <link rel="manifest" href="/img/ADM/favicon/site.webmanifest" />
 
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" /> 
   <link rel="stylesheet" href="./css/ADM/select-language.css">
@@ -20,7 +19,7 @@
 <body>
   <div class="container">
     <a href="./">
-      <img src="./img/logo-full.png" alt="Logo MQF" class="logo" />
+      <img src="./img/ADM/logo-full.png" alt="Logo ADM" class="logo" />
     </a>
     <h1>Selecione os Idiomas</h1>
     <p class="subtitle">Escolha a língua principal e a língua secundária</p>
@@ -71,6 +70,23 @@
 
       setupDropdown('mainLanguage', 'mainOptions', languages);
       setupDropdown('secondaryLanguage', 'secondaryOptions', languages);
+
+      // --- Define os padrões ---
+      const mainInput = document.getElementById('mainLanguage');
+      const secondaryInput = document.getElementById('secondaryLanguage');
+
+      const ptBR = languages.find(l => l.bcp47 === 'pt-BR');
+      const enUS = languages.find(l => l.bcp47 === 'en-US');
+
+      if (ptBR) {
+        mainInput.value = ptBR.name;
+        mainInput.dataset.bcp47 = ptBR.bcp47;
+      }
+
+      if (enUS) {
+        secondaryInput.value = enUS.name;
+        secondaryInput.dataset.bcp47 = enUS.bcp47;
+      }
 
     } catch (err) {
       console.error('Erro ao carregar idiomas:', err);
@@ -148,7 +164,7 @@
     const secondaryBcp47 = secondaryInput.dataset.bcp47;
 
     // Redireciona para a aula com os parâmetros
-    window.location.href = `/ADM/app?main=${mainBcp47}&secondary=${secondaryBcp47}`;
+    window.location.href = `/ADM/app?main=${mainBcp47}&secondary=${secondaryBcp47}&engine=gstt`;
   });
 
   loadLanguages();
