@@ -164,47 +164,108 @@ async function connectWebSocket() {
   });
 }
 
-// Pipeline de processamento de áudio
+// Pipeline de processamento de áudio com todos os filtros
 function setupAudioProcessing() {
-  return new Promise((resolve, reject) => {
-    try {
-      updateStatus('AUDIO_PROCESSING');
-      const source = audioContext.createMediaStreamSource(stream);
-      const processor = audioContext.createScriptProcessor(4096, 1, 1);
-      const mute = audioContext.createGain();
-      mute.gain.value = 0;
+  try {
+    updateStatus('AUDIO_PROCESSING');
 
-      // Conexão dos componentes
-      source.connect(processor);
-      processor.connect(mute);
-      mute.connect(audioContext.destination);
+    const source = audioContext.createMediaStreamSource(stream);
 
-      if (audioContext.state === 'suspended') {
-        audioContext.resume().catch(console.error);
-      }
+    // Configuração dos filtros de áudio (ordem é crítica para o resultado final)
+    // Highpass Filter (300Hz) - Remove frequências indesejadas
+    const highpass = audioContext.createBiquadFilter();
+    highpass.type = 'highpass';          // Corta frequências abaixo do corte
+    highpass.frequency.value = 300;      // Ideal para remover ruídos de vento/vibração
+    highpass.Q.value = 0.707;            // Curva suave (Butterworth) sem distorção
 
-      processor.onaudioprocess = (e) => {
-        if (socket?.readyState !== WebSocket.OPEN) return;
-        try {
-          const input = e.inputBuffer.getChannelData(0);
-          const pcm = new Int16Array(input.length);
-          for (let i = 0; i < input.length; i++) {
-            let s = input[i];
-            if (s > 1) s = 1;
-            else if (s < -1) s = -1;
-            pcm[i] = (s * 32767) | 0;
-          }
-          socket.send(pcm.buffer);
-        } catch (err) {
-          console.error('[AUDIO] Erro no onaudioprocess:', err);
-        }
-      };
-      resolve(true);
-    } catch (error) {
-      updateStatus('ERROR', { error });
-      reject(new Error("Falha no processamento de áudio"));
+    // Notch Filter (60Hz) - Elimina interferência elétrica
+    const notch = audioContext.createBiquadFilter();
+    notch.type = "notch";                // Corta estreitamente uma frequência específica
+    notch.frequency.value = 60;          // Alvo: ruído de rede elétrica (50Hz na Europa)
+    notch.Q.value = 5.0;                 // Banda estreita para não afetar vozes
+
+    // Pre-Ênfase (High Shelf) - Melhora inteligibilidade
+    const preEmphasis = audioContext.createBiquadFilter();
+    preEmphasis.type = 'highshelf';      // Aumenta apenas altas frequências
+    preEmphasis.frequency.value = 2000;  // Foco em consoantes (2000-3400Hz)
+    preEmphasis.gain.value = 4.0;        // +4dB boost - Suficiente para ASR sem distorção
+
+    // De-esser - Reduz sibilância ("s" estridentes)
+    const deesser = audioContext.createBiquadFilter();
+    deesser.type = 'peaking';            // Corte seletivo
+    deesser.frequency.value = 5000;      // Faixa crítica de sibilância
+    deesser.gain.value = -6.0;           // Redução moderada
+    deesser.Q.value = 2.0;               // Banda estreita para não afetar outras frequências
+
+    // Lowpass Filter (3400Hz) - Remove hiss/ruídos agudos
+    const lowpass = audioContext.createBiquadFilter();
+    lowpass.type = 'lowpass';            // Corta frequências acima do corte
+    lowpass.frequency.value = 3400;      // Limite superior da voz humana para ASR
+    lowpass.Q.value = 0.707;             // Curva natural (Butterworth)
+
+    // Compressor - Normaliza volume dinâmico
+    const compressor = audioContext.createDynamicsCompressor();
+    compressor.threshold.value = -20;    // Inicia compressão em -20dBFS (evita picos)
+    compressor.ratio.value = 4;          // 4:1 - Redução suave sem "bombeamento"
+    compressor.attack.value = 0.01;      // 10ms - Resposta rápida a picos repentinos
+    compressor.release.value = 0.1;      // 100ms - Liberação natural
+
+    processor = audioContext.createScriptProcessor(4096, 1, 1);
+
+    const mute = audioContext.createGain();
+    mute.gain.value = 0;
+
+    // Conexão dos componentes na ordem específica para melhor qualidade de áudio
+    source.connect(highpass);
+    highpass.connect(notch);
+    notch.connect(preEmphasis);
+    preEmphasis.connect(deesser);
+    deesser.connect(lowpass);
+    lowpass.connect(compressor);
+    compressor.connect(processor);
+    processor.connect(mute);
+    mute.connect(audioContext.destination);
+
+    if (audioContext.state === 'suspended') {
+      audioContext.resume().catch(console.error);
     }
-  });
+
+    let frameCount = 0;
+
+    processor.onaudioprocess = (e) => {
+      if (socket?.readyState !== WebSocket.OPEN) return;
+
+      try {
+        const input = e.inputBuffer.getChannelData(0);
+
+        if ((frameCount++ % 30) === 0) {
+          let sum = 0;
+          for (let i = 0; i < input.length; i++) sum += input[i] * input[i];
+          const rms = Math.sqrt(sum / input.length);
+          console.log(`[AUDIO] len=${input.length} rms=${rms.toFixed(4)}`);
+        }
+
+        // Conversão de float32 para PCM16 (formato esperado pelo back)
+        const pcm = new Int16Array(input.length);
+        for (let i = 0; i < input.length; i++) {
+          let s = input[i];
+          if (s > 1) s = 1;
+          else if (s < -1) s = -1;
+          pcm[i] = (s * 32767) | 0;
+        }
+
+        socket.send(pcm.buffer);
+      } catch (err) {
+        console.error('[AUDIO] Erro no onaudioprocess:', err);
+      }
+    };
+
+    return Promise.resolve(true);
+  } catch (error) {
+    console.error('[AUDIO] Erro no processamento:', error);
+    updateStatus('ERROR', { error });
+    return Promise.resolve(false);
+  }
 }
 
 // Detecta as configurações de áudio do dispositivo

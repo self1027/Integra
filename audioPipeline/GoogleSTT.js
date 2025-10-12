@@ -1,53 +1,16 @@
-const { PassThrough } = require('stream');
-const { SpeechClient } = require('@google-cloud/speech');
+const { BaseGoogleSTT } = require('./BaseGoogleSTT');
 
-class GoogleSTT {
+class GoogleSTT extends BaseGoogleSTT {
   constructor({ sampleRate, languageCode, onTranscription }) {
-    this._client = new SpeechClient();
-    this._sampleRate = sampleRate;
-    this._languageCode = languageCode;
-    this._onTranscription = onTranscription;
-    this._audioInputStream = null;
-    this._recognizeStream = null;
-    this._isActive = false;
+    super({ sampleRate, languageCode, onTranscription });
   }
 
-  async init() {
-    // Simple initialization - no complex async needed
-    return Promise.resolve();
-  }
-
-  pushAudio(pcmBuffer) {
-    if (!this._isActive) {
-      this._startStream();
-    }
-
-    if (this._audioInputStream && this._audioInputStream.writable) {
-      try {
-        this._audioInputStream.write(pcmBuffer);
-      } catch (error) {
-        console.warn("[GSTT] Stream write error, restarting:", error.message);
-        this._restartStream();
-        // Retry after a short delay
-        setTimeout(() => {
-          if (this._audioInputStream && this._audioInputStream.writable) {
-            this._audioInputStream.write(pcmBuffer);
-          }
-        }, 50);
-      }
-    }
-  }
-
-  _startStream() {
-    this._cleanupStreams();
-
-    this._audioInputStream = new PassThrough();
-    
-    const request = {
+  getRequestConfig() {
+    return {
       config: {
         encoding: 'LINEAR16',
-        sampleRateHertz: this._sampleRate,
-        languageCode: this._languageCode,
+        sampleRateHertz: this._config.sampleRate,
+        languageCode: this._config.languageCode,
         model: 'default',
         enableAutomaticPunctuation: true,
         speechContexts: [{
@@ -61,51 +24,6 @@ class GoogleSTT {
       interimResults: true,
       singleUtterance: false
     };
-
-    this._recognizeStream = this._client
-      .streamingRecognize(request)
-      .on('error', (err) => {
-        console.error("[GSTT] Recognition error:", err);
-        this._isActive = false;
-        setTimeout(() => this._restartStream(), 1000);
-      })
-      .on('end', () => {
-        this._isActive = false;
-        setTimeout(() => this._restartStream(), 100);
-      })
-      .on('data', (data) => {
-        this._handleSpeechData(data);
-      });
-
-    this._audioInputStream.pipe(this._recognizeStream);
-    this._isActive = true;
-    console.log("[GSTT] Stream started");
-  }
-
-  _restartStream() {
-    console.log("[GSTT] Restarting stream");
-    this._cleanupStreams();
-    this._startStream();
-  }
-
-  _cleanupStreams() {
-    if (this._recognizeStream) {
-      try {
-        this._recognizeStream.removeAllListeners();
-        this._recognizeStream.destroy();
-      } catch (e) {
-        console.warn("[GSTT] Error cleaning recognize stream:", e);
-      }
-    }
-    
-    if (this._audioInputStream) {
-      try {
-        this._audioInputStream.removeAllListeners();
-        this._audioInputStream.destroy();
-      } catch (e) {
-        console.warn("[GSTT] Error cleaning audio stream:", e);
-      }
-    }
   }
 
   _handleSpeechData(data) {
@@ -123,9 +41,8 @@ class GoogleSTT {
     }
   }
 
-  stop() {
-    this._isActive = false;
-    this._cleanupStreams();
+  _onStreamStart() {
+    console.log("[GSTT] Stream started");
   }
 }
 
