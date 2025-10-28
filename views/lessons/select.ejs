@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frases da Aula</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        .phrase {
+            border: 1px solid #ddd;
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 5px;
+            background: #fafafa;
+        }
+        .phrase .raw {
+            font-size: 1.1em;
+            margin-bottom: 5px;
+        }
+        .phrase .translated {
+            font-style: italic;
+            color: #555;
+            border-left: 3px solid #4CAF50;
+            padding-left: 10px;
+            margin-top: 5px;
+        }
+        .meta {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
+        }
+        .empty {
+            text-align: center;
+            color: #666;
+            padding: 20px;
+        }
+        .btn {
+            display: inline-block;
+            padding: 8px 15px;
+            background: #4CAF50;
+            color: white;
+            text-decoration: none;
+            border-radius: 3px;
+            margin-right: 10px;
+            font-size: 0.9em;
+        }
+        .btn.back {
+            background: #6c757d;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Frases da Aula</h1>
+        <a href="/lesson/list" class="btn back">Voltar para Lista</a>
+        <a href="/" class="btn">Nova Gravação</a>
+        <br><br>
+
+        <% if (!lesson) { %>
+            <div class="empty">
+                Aula não encontrada.
+            </div>
+        <% } else if (lesson.phrases.length === 0) { %>
+            <div class="empty">
+                Esta aula não possui frases.
+            </div>
+        <% } else { %>
+            <div class="meta">
+                <strong>Data:</strong> <%= new Date(lesson.startedAt).toLocaleString('pt-BR') %> |
+                <strong>Total de frases:</strong> <%= lesson.phrases.length %> |
+                <strong>Duração:</strong> <%= lesson.duration %> segundos
+            </div>
+            <br>
+
+            <% lesson.phrases.forEach((phrase, index) => { %>
+                <div class="phrase">
+                    <div class="raw">
+                        <strong>Frase <%= index + 1 %>:</strong> <%= phrase.raw %>
+                    </div>
+                    <% if (phrase.translated) { %>
+                        <div class="translated">
+                            <strong>Tradução:</strong> <%= phrase.translated %>
+                        </div>
+                    <% } %>
+                    <div class="meta">
+                        Idioma: <%= phrase.language || 'N/A' %> |
+                        Confiança: <%= phrase.confidence ? (phrase.confidence * 100).toFixed(1) + '%' : 'N/A' %> |
+                        Primária: <%= phrase.isPrimary ? 'Sim' : 'Não' %>
+                    </div>
+                </div>
+            <% }) %>
+        <% } %>
+    </div>
+</body>
+</html>

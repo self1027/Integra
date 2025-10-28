@@ -7,6 +7,7 @@ const { SSL_OPTIONS, HTTP_PORT, HTTPS_PORT, HTTP_REDIRECT_PORT } = require('./co
 const ADM = require('./routes/ADM.js')
 const MQF = require('./routes/MQF.js')
 const INTEGRA = require('./routes/integra.js')
+const LESSON = require('./routes/lesson.js')
 require('dotenv').config();
 
 const app = express();
@@ -19,6 +20,7 @@ app.use(bodyParser.json())
 app.use('/', INTEGRA)
 app.use('/MQF', MQF)
 app.use('/ADM', ADM)
+app.use('/lesson', LESSON)
 
 
 const httpServer = http.createServer(app);

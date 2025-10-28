@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lista de Aulas</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        .lesson {
+            border: 1px solid #ddd;
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 5px;
+            background: #fafafa;
+        }
+        .lesson h3 {
+            margin: 0 0 10px 0;
+            color: #555;
+        }
+        .meta {
+            font-size: 0.9em;
+            color: #666;
+        }
+        .actions {
+            margin-top: 10px;
+        }
+        .btn {
+            display: inline-block;
+            padding: 8px 15px;
+            background: #4CAF50;
+            color: white;
+            text-decoration: none;
+            border-radius: 3px;
+            margin-right: 10px;
+            font-size: 0.9em;
+        }
+        .btn.select {
+            background: #2196F3;
+        }
+        .empty {
+            text-align: center;
+            color: #666;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Lista de Aulas</h1>
+        <a href="/" class="btn">Nova Gravação</a>
+        <a href="/lesson/select" class="btn select">Selecionar Aula</a>
+        <br><br>
+
+        <% if (lessons.length === 0) { %>
+            <div class="empty">
+                Nenhuma aula encontrada.
+            </div>
+        <% } else { %>
+            <% lessons.forEach(lesson => { %>
+                <div class="lesson">
+                    <h3>Aula: <%= lesson.title || 'Sem título' %></h3>
+                    <div class="meta">
+                        <strong>Data:</strong> <%= new Date(lesson.startedAt).toLocaleString('pt-BR') %> |
+                        <strong>Frases:</strong> <%= lesson.phrases.length %> |
+                        <strong>Duração:</strong> <%= lesson.duration %> segundos
+                    </div>
+                    <div class="actions">
+                        <a href="/lesson/select?lesson=<%= lesson._id %>" class="btn select">Selecionar</a>
+                    </div>
+                </div>
+            <% }) %>
+        <% } %>
+    </div>
+</body>
+</html>

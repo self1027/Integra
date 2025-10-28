@@ -193,5 +193,5 @@ function tryParseJson(data) {
   if (Buffer.isBuffer(data)) data = data.toString('utf8');
   try { return JSON.parse(data); } catch { return null; }
 }
-//TODO: criar classe de tradução e para cada transcrição do ADM tentar tradução, usar string-similarity
+
 module.exports = { WebSocketServerManager };

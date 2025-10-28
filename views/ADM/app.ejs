@@ -27,6 +27,11 @@
         <i class="fas fa-stop"></i>
         Desconectar
       </button>
+      <!-- 🔗 ADICIONADO -->
+      <a href="/lesson" class="btn btn-secondary">
+        <i class="fas fa-book"></i>
+        Aulas
+      </a>
     </div>
     
     <div id="status" class="status disconnected">
@@ -46,7 +51,6 @@
     <div id="phrases-container" class="phrases-container"></div>
   </main>
 
-  <!-- Container do VLibras (apenas UMA vez) -->
   <div vw class="enabled">
     <div vw-access-button class="active"></div>
     <div vw-plugin-wrapper>
@@ -54,12 +58,8 @@
     </div>
   </div>
 
-  <!-- Script do VLibras -->
   <script src="https://vlibras.gov.br/app/vlibras-plugin.js"></script>
-  <script>
-    new window.VLibras.Widget('https://vlibras.gov.br/app');
-  </script>
-
+  <script>new window.VLibras.Widget('https://vlibras.gov.br/app');</script>
   <script>
     document.querySelectorAll('.btn-translate').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -68,6 +68,7 @@
       });
     });
   </script>
+  <script type="module" src="/js/lesson-memory.js"></script>
   <script src="/js/audio_ws.js"></script>
   <script src="/js/ADM/features.js"></script>
 </body>

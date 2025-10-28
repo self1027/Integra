@@ -1,7 +1,97 @@
+// === LESSONMEMORY INCLUÍDO DIRETAMENTE NO ARQUIVO ===
+class LessonMemory {
+  constructor() {
+    this.resetLesson();
+  }
+
+  startLesson() {
+    this.entries = [];
+    this.startedAt = new Date().toISOString();
+    console.log('[LessonMemory] Aula iniciada:', this.startedAt);
+  }
+
+  addEntry({ raw, translated = null, confidence = null, isPrimary = null, language = null }) {
+    if (!this.entries) this.startLesson();
+    
+    const entry = {
+      timestamp: new Date().toISOString(),
+      raw,
+      translated,
+      confidence,
+      isPrimary,
+      language
+    };
+    
+    this.entries.push(entry);
+    console.log('[LessonMemory] Frase adicionada:', {
+      total: this.entries.length,
+      raw: raw.substring(0, 50) + '...'
+    });
+  }
+
+  endLesson() {
+    const endedAt = new Date().toISOString();
+    const lessonData = {
+      startedAt: this.startedAt,
+      endedAt: endedAt,
+      entries: this.entries || []
+    };
+    
+    console.log('[LessonMemory] Aula finalizada:', {
+      startedAt: this.startedAt,
+      endedAt: endedAt,
+      totalPhrases: this.entries?.length || 0
+    });
+    
+    return lessonData;
+  }
+
+  getEntryCount() {
+    return this.entries?.length || 0;
+  }
+
+  resetLesson() {
+    this.entries = [];
+    this.startedAt = null;
+  }
+
+  async sendLessonToServer() {
+    const data = this.endLesson();
+    
+    try {
+      const response = await fetch('/lesson', {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+      }
+      
+      const result = await response.json();
+      console.log("[LessonMemory] Aula salva com sucesso:", result);
+      
+      this.resetLesson();
+      return true;
+      
+    } catch (err) {
+      console.error("[LessonMemory] Erro ao salvar aula:", err);
+      return false;
+    }
+  }
+}
+
+// === CÓDIGO PRINCIPAL ===
 const startBtn = document.getElementById('startBtn');
 const stopBtn = document.getElementById('stopBtn');
 const statusDiv = document.getElementById('status');
 const sampleRateInfo = document.getElementById('sampleRateInfo') || document.createElement('div');
+
+// Inicializar LessonMemory IMEDIATAMENTE
+const lessonMemory = new LessonMemory();
+window.lessonMemory = lessonMemory;
+console.log('✅ LessonMemory inicializado');
 
 // Variáveis de estado
 let socket;
@@ -72,7 +162,7 @@ function setupMetadataHeartbeat() {
   }, METADATA_INTERVAL);
 }
 
-// Conexão WebSocket com tratamento de erros and reconexão
+// Conexão WebSocket com tratamento de erros e reconexão
 async function connectWebSocket() {
   return new Promise((resolve, reject) => {
     updateStatus('CONNECTING');
@@ -87,7 +177,6 @@ async function connectWebSocket() {
     const mainLang = urlParams.get("main") || "pt-BR";
     const secondaryLang = urlParams.get("secondary");
 
-    // Build WebSocket URL with ALL parameters from the page URL
     let wsUrl = `wss://${window.location.hostname}?engine=${engine}&main=${encodeURIComponent(mainLang)}`;
     if (secondaryLang) {
       wsUrl += `&secondary=${encodeURIComponent(secondaryLang)}`;
@@ -128,35 +217,48 @@ async function connectWebSocket() {
         const data = JSON.parse(event.data);
         console.log('Dados recebidos:', data);
         
-        // Verifica o tipo de mensagem
+        // Verificar se o LessonMemory está disponível
+        if (!window.lessonMemory) {
+          console.error('❌ LessonMemory não encontrado no window');
+          return;
+        }
+
+        let phraseData = {};
+        
         if (data.tipo === 'frase-bilingual') {
-          // É uma transcrição bilingual - usa o objeto completo
-          window.addNewPhrase({
+          phraseData = {
             raw: data.raw,
             translated: data.translated,
             language: data.language,
             confidence: data.confidence,
             isPrimary: data.isPrimary
-          });
+          };
+          window.addNewPhrase(phraseData);
         } else if (data.tipo === 'frase-simples') {
-          // É uma transcrição simples
-          window.addNewPhrase({
+          phraseData = {
             raw: data.texto,
             translated: null,
             language: null,
             confidence: null,
             isPrimary: null
-          });
+          };
+          window.addNewPhrase(phraseData);
         } else if (data.tipo === 'frase') {
-          // Formato legado - compatibilidade
-          window.addNewPhrase({
+          phraseData = {
             raw: data.raw || data.texto,
             translated: data.translated || null,
             language: data.language || data.idioma || null,
             confidence: data.confidence || data.confianca || null,
             isPrimary: data.isPrimary || null
-          });
+          };
+          window.addNewPhrase(phraseData);
         }
+
+        // Adiciona à memória da aula
+        console.log('📝 Adicionando frase ao LessonMemory:', phraseData);
+        window.lessonMemory.addEntry(phraseData);
+        console.log('✅ Frases no LessonMemory:', window.lessonMemory.getEntryCount());
+
       } catch (error) {
         console.error("[WS] Erro ao processar mensagem:", error);
       }
@@ -164,58 +266,50 @@ async function connectWebSocket() {
   });
 }
 
-// Pipeline de processamento de áudio com todos os filtros
+// Pipeline de processamento de áudio
 function setupAudioProcessing() {
   try {
     updateStatus('AUDIO_PROCESSING');
 
     const source = audioContext.createMediaStreamSource(stream);
 
-    // Configuração dos filtros de áudio (ordem é crítica para o resultado final)
-    // Highpass Filter (300Hz) - Remove frequências indesejadas
     const highpass = audioContext.createBiquadFilter();
-    highpass.type = 'highpass';          // Corta frequências abaixo do corte
-    highpass.frequency.value = 300;      // Ideal para remover ruídos de vento/vibração
-    highpass.Q.value = 0.707;            // Curva suave (Butterworth) sem distorção
+    highpass.type = 'highpass';
+    highpass.frequency.value = 300;
+    highpass.Q.value = 0.707;
 
-    // Notch Filter (60Hz) - Elimina interferência elétrica
     const notch = audioContext.createBiquadFilter();
-    notch.type = "notch";                // Corta estreitamente uma frequência específica
-    notch.frequency.value = 60;          // Alvo: ruído de rede elétrica (50Hz na Europa)
-    notch.Q.value = 5.0;                 // Banda estreita para não afetar vozes
+    notch.type = "notch";
+    notch.frequency.value = 60;
+    notch.Q.value = 5.0;
 
-    // Pre-Ênfase (High Shelf) - Melhora inteligibilidade
     const preEmphasis = audioContext.createBiquadFilter();
-    preEmphasis.type = 'highshelf';      // Aumenta apenas altas frequências
-    preEmphasis.frequency.value = 2000;  // Foco em consoantes (2000-3400Hz)
-    preEmphasis.gain.value = 4.0;        // +4dB boost - Suficiente para ASR sem distorção
+    preEmphasis.type = 'highshelf';
+    preEmphasis.frequency.value = 2000;
+    preEmphasis.gain.value = 4.0;
 
-    // De-esser - Reduz sibilância ("s" estridentes)
     const deesser = audioContext.createBiquadFilter();
-    deesser.type = 'peaking';            // Corte seletivo
-    deesser.frequency.value = 5000;      // Faixa crítica de sibilância
-    deesser.gain.value = -6.0;           // Redução moderada
-    deesser.Q.value = 2.0;               // Banda estreita para não afetar outras frequências
+    deesser.type = 'peaking';
+    deesser.frequency.value = 5000;
+    deesser.gain.value = -6.0;
+    deesser.Q.value = 2.0;
 
-    // Lowpass Filter (3400Hz) - Remove hiss/ruídos agudos
     const lowpass = audioContext.createBiquadFilter();
-    lowpass.type = 'lowpass';            // Corta frequências acima do corte
-    lowpass.frequency.value = 3400;      // Limite superior da voz humana para ASR
-    lowpass.Q.value = 0.707;             // Curva natural (Butterworth)
+    lowpass.type = 'lowpass';
+    lowpass.frequency.value = 3400;
+    lowpass.Q.value = 0.707;
 
-    // Compressor - Normaliza volume dinâmico
     const compressor = audioContext.createDynamicsCompressor();
-    compressor.threshold.value = -20;    // Inicia compressão em -20dBFS (evita picos)
-    compressor.ratio.value = 4;          // 4:1 - Redução suave sem "bombeamento"
-    compressor.attack.value = 0.01;      // 10ms - Resposta rápida a picos repentinos
-    compressor.release.value = 0.1;      // 100ms - Liberação natural
+    compressor.threshold.value = -20;
+    compressor.ratio.value = 4;
+    compressor.attack.value = 0.01;
+    compressor.release.value = 0.1;
 
     processor = audioContext.createScriptProcessor(4096, 1, 1);
 
     const mute = audioContext.createGain();
     mute.gain.value = 0;
 
-    // Conexão dos componentes na ordem específica para melhor qualidade de áudio
     source.connect(highpass);
     highpass.connect(notch);
     notch.connect(preEmphasis);
@@ -245,7 +339,6 @@ function setupAudioProcessing() {
           console.log(`[AUDIO] len=${input.length} rms=${rms.toFixed(4)}`);
         }
 
-        // Conversão de float32 para PCM16 (formato esperado pelo back)
         const pcm = new Int16Array(input.length);
         for (let i = 0; i < input.length; i++) {
           let s = input[i];
@@ -299,11 +392,21 @@ async function detectAudioSettings() {
   }
 }
 
-// Fluxo principal com tratamento de erros e retentativas automáticas
+// Fluxo principal
 async function startRecording() {
   try {
     startBtn.disabled = true;
     stopBtn.disabled = false;
+
+    console.log('🎤 Iniciando gravação...');
+    console.log('📚 LessonMemory disponível?', !!window.lessonMemory);
+    
+    if (window.lessonMemory) {
+      window.lessonMemory.startLesson();
+      console.log('✅ Aula iniciada no LessonMemory');
+    } else {
+      console.error('❌ LessonMemory não encontrado');
+    }
 
     const settingsDetected = await detectAudioSettings();
     if (!settingsDetected) throw new Error("Falha na detecção de áudio");
@@ -323,11 +426,11 @@ async function startRecording() {
 }
 
 // Limpeza segura de todos os recursos
-function stopRecording() {
+async function stopRecording() {
+  console.log('[APP] Parando gravação...');
+  
   if (socket) {
-    if (socket.metadataInterval) {
-      clearInterval(socket.metadataInterval);
-    }
+    if (socket.metadataInterval) clearInterval(socket.metadataInterval);
     socket.onclose = null;
     socket.close();
     socket = null;
@@ -337,12 +440,12 @@ function stopRecording() {
     processor.disconnect();
     processor = null;
   }
-  
+
   if (stream) {
     stream.getTracks().forEach(track => track.stop());
     stream = null;
   }
-  
+
   if (audioContext) {
     audioContext.close().catch(console.error);
     audioContext = null;
@@ -352,6 +455,29 @@ function stopRecording() {
   startBtn.disabled = false;
   stopBtn.disabled = true;
   reconnectAttempts = 0;
+
+  // Salva a aula usando o LessonMemory
+  console.log('💾 Verificando LessonMemory para salvar...');
+  console.log('📊 LessonMemory disponível?', !!window.lessonMemory);
+  
+  if (window.lessonMemory) {
+    const entryCount = window.lessonMemory.getEntryCount();
+    console.log(`📝 Total de frases no LessonMemory: ${entryCount}`);
+    
+    if (entryCount > 0) {
+      console.log('[APP] Salvando aula com', entryCount, 'frases');
+      try {
+        await window.lessonMemory.sendLessonToServer();
+        console.log('[APP] Aula salva com sucesso no banco de dados');
+      } catch (err) {
+        console.error('[APP] Erro ao salvar aula:', err);
+      }
+    } else {
+      console.log('[APP] Nenhuma frase para salvar - LessonMemory vazio');
+    }
+  } else {
+    console.error('[APP] LessonMemory não encontrado para salvar aula');
+  }
 }
 
 // Event listeners
@@ -364,7 +490,6 @@ window.addEventListener('error', (event) => {
   updateStatus('ERROR', { error: event.error });
 });
 
-// Verificação de suporte às APIs necessárias
 if (!navigator.mediaDevices?.getUserMedia) {
   updateStatus('ERROR', { error: "API de mídia não suportada" });
   startBtn.disabled = true;
@@ -376,3 +501,17 @@ if (!window.WebSocket) {
 }
 
 updateStatus('INITIAL');
+
+// Função de debug para verificar o estado
+window.debugLessonMemory = () => {
+  console.log('🔍 Debug LessonMemory:');
+  console.log('- Disponível:', !!window.lessonMemory);
+  if (window.lessonMemory) {
+    console.log('- Entries count:', window.lessonMemory.getEntryCount());
+    console.log('- Started at:', window.lessonMemory.startedAt);
+    console.log('- Entries:', window.lessonMemory.entries);
+  }
+};
+
+console.log('🚀 audio_ws.js carregado com sucesso');
+console.log('📚 LessonMemory disponível globalmente como window.lessonMemory');
