@@ -34,7 +34,6 @@ class GoogleSTT extends BaseGoogleSTT {
         const isFinal = result.isFinal;
 
         if (isFinal && transcript.trim() && this._onTranscription) {
-          console.log(`[GSTT] FINAL: "${transcript}"`);
           this._onTranscription(transcript.trim());
         }
       }
@@ -42,8 +41,8 @@ class GoogleSTT extends BaseGoogleSTT {
   }
 
   _onStreamStart() {
-    console.log("[GSTT] Stream started");
+    // console.log("[GSTT] Stream started");
   }
 }
 
-module.exports = { GoogleSTT };
+module.exports = { GoogleSTT }; 

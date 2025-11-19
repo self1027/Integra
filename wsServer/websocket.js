@@ -12,14 +12,9 @@ if (!fs.existsSync(MODEL_PATH)) {
   process.exit(1); 
 }
 
-// The Vosk model is instantiated once, as it is a heavy object.
 const voskModel = new vosk.Model(MODEL_PATH);
 vosk.setLogLevel(0);
 
-/**
- * A class to manage the WebSocket server, handling incoming connections
- * and orchestrating the audio transcription pipeline.
- */
 class WebSocketServerManager {
   static init({ httpServer, httpsServer }) {
     [httpServer, httpsServer].forEach(server => {
@@ -42,7 +37,6 @@ class WebSocketServerManager {
       engine = urlParams.searchParams.get('engine');
     }
 
-    // EXTRACT LANGUAGE PARAMETERS FROM URL
     const mainLang = urlParams.searchParams.get('main') || 'pt-BR';
     const secondaryLang = urlParams.searchParams.get('secondary');
 
@@ -84,9 +78,7 @@ class WebSocketServerManager {
       if (isPipelineInitialized) return;
 
       isPipelineInitialized = true;
-      console.log(`[WS] Initializing pipeline with engine: ${engine}, sample rate: ${sampleRate}, main: ${mainLang}, secondary: ${secondaryLang || 'none'}`);
 
-      // Create STT instance first
       if (engine === 'vosk') {
         sttInstance = new VoskSTT({ 
           model: voskModel, 
@@ -100,47 +92,40 @@ class WebSocketServerManager {
           }
         });
       } else if (engine === 'gstt') {
-        // ONLY use bilingual if BOTH languages are specified and different
-        // NO WebSocketServerManager - dentro do initPipeline(), onde cria o GoogleBilingualSTT:
-      if (secondaryLang && mainLang !== secondaryLang) {
-        console.log(`[WS] Using bilingual STT: ${mainLang} + ${secondaryLang}`);
-        
-        sttInstance = new GoogleBilingualSTT({
-          sampleRate: TARGET_SAMPLE_RATE,
-          primaryLanguage: mainLang,
-          secondaryLanguage: secondaryLang,
-          onTranscription: (result) => {
-            try {
-              // ENVIA O OBJETO COMPLETO DIRETAMENTE, sem encapsular
-              ws.send(JSON.stringify({
-                tipo: 'frase-bilingual', // Nova identificação
-                ...result // Spread de todas as propriedades do resultado
-              }));
-            } catch (error) {
-              console.error('[WS] Erro ao enviar transcrição (Bilingual):', error);
+        if (secondaryLang && mainLang !== secondaryLang) {
+          sttInstance = new GoogleBilingualSTT({
+            sampleRate: TARGET_SAMPLE_RATE,
+            primaryLanguage: mainLang,
+            secondaryLanguage: secondaryLang,
+            onTranscription: (result) => {
+              try {
+                ws.send(JSON.stringify({
+                  tipo: 'frase-bilingual',
+                  ...result
+                }));
+              } catch (error) {
+                console.error('[WS] Erro ao enviar transcrição (Bilingual):', error);
+              }
             }
-          }
-        });
-      } else {
-        // GoogleSTT normal (mantém igual)
-        sttInstance = new GoogleSTT({
-          sampleRate: TARGET_SAMPLE_RATE,
-          languageCode: mainLang,
-          onTranscription: (text) => {
-            try {
-              ws.send(JSON.stringify({ 
-                tipo: 'frase-simples', 
-                texto: text 
-              }));
-            } catch (error) {
-              console.error('[WS] Erro ao enviar transcrição (GSTT):', error);
+          });
+        } else {
+          sttInstance = new GoogleSTT({
+            sampleRate: TARGET_SAMPLE_RATE,
+            languageCode: mainLang,
+            onTranscription: (text) => {
+              try {
+                ws.send(JSON.stringify({ 
+                  tipo: 'frase-simples', 
+                  texto: text 
+                }));
+              } catch (error) {
+                console.error('[WS] Erro ao enviar transcrição (GSTT):', error);
+              }
             }
-          }
-        });
-      }
+          });
+        }
       }
 
-      // Create and start FFmpeg instance
       ffmpegInstance = new Ffmpeg({
         inputSampleRate: sampleRate,
         outputSampleRate: TARGET_SAMPLE_RATE
@@ -153,11 +138,7 @@ class WebSocketServerManager {
           }
         },
         onReady: () => {
-          console.log('[WS] FFmpeg is ready');
-          // Process buffered audio after FFmpeg is ready
           if (audioBuffer.length > 0) {
-            console.log(`[WS] Processing ${audioBuffer.length} buffered chunks`);
-            // Process buffered audio
             audioBuffer.forEach(chunk => {
               ffmpegInstance.pushAudio(chunk);
             });
@@ -172,7 +153,6 @@ class WebSocketServerManager {
     }
 
     function cleanup() {
-      console.log('[WS] Cleaning up');
       clearTimeout(metadataTimeout);
       
       if (ffmpegInstance) {

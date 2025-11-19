@@ -1,4 +1,4 @@
-# Sistema de Transcrição de Voz para LIBRAS
+# Sistema de Transcrição de Voz para LIBRAS - V1
 
 ## Funcionamento
 
@@ -8,10 +8,30 @@
 4. O texto transcrito é enviado de volta ao navegador em tempo real
 5. O VLibras converte o texto em sinais de LIBRAS
 
+## Novas Funcionalidades (V1)
+
+### Transcrição Bilíngue
+- Reconhecimento simultâneo em dois idiomas
+- Tradução automática entre português e inglês
+- Detecção automática do idioma falado
+
+### Sistema de Aulas
+- Gravação e armazenamento de sessões completas
+- Listagem e gerenciamento de aulas anteriores
+- Renomeação de aulas para organização
+- Visualização detalhada com todas as frases transcritas
+
+### Interface Aprimorada
+- Controle de gravação com feedback visual
+- Exibição em tempo real das transcrições
+- Navegação entre aulas gravadas
+- Interface responsiva e acessível
+
 ## Arquitetura do Sistema
 
 ### Múltiplos Motores de Reconhecimento:
 - **Google Speech-to-Text (GSTT)**: Reconhecimento em nuvem com alta precisão (padrão)
+- **Google Bilingual STT**: Reconhecimento simultâneo em dois idiomas
 - **Vosk**: Reconhecimento offline para uso local sem internet
 
 ### Fluxo de Áudio em Tempo Real:
@@ -64,16 +84,18 @@ node index.js
 
 ### Acesso via Navegador:
 - **Google STT**: https://localhost/app?engine=gstt
+- **Google Bilingual**: https://localhost/app?engine=gstt&main=pt-BR&secondary=en-US
 - **Vosk**: https://localhost/app?engine=vosk
 
 ### Controles:
 - **Botão Iniciar**: Começa a captura de áudio e transcrição
-- **Botão Parar**: Interrompe a transcrição
+- **Botão Parar**: Interrompe a transcrição e salva a aula
 - **Status em Tempo Real**: Mostra o estado da conexão e transcrição
 
 ### Parâmetros de URL:
 - `?engine=gstt` - Usa Google Speech-to-Text (padrão)
 - `?engine=vosk` - Usa reconhecimento offline Vosk
+- `?main=pt-BR&secondary=en-US` - Configura idiomas para transcrição bilíngue
 
 ## Funcionalidades Avançadas
 
@@ -81,6 +103,12 @@ node index.js
 - Detecção automática de frases completas
 - Múltiplas utterances em uma única sessão
 - Reinício automático do stream para reconhecimento contínuo
+
+### Sistema de Aulas:
+- Armazenamento completo com metadados
+- Duração automática da sessão
+- Contagem de frases transcritas
+- Interface de gerenciamento
 
 ### Processamento de Áudio:
 - Conversão em tempo real para formato PCM
@@ -105,16 +133,20 @@ node index.js
 ```
 /
 ├── audioPipeline/
-│   ├── ffmpeg.js          # Processamento de áudio
-│   ├── gsttPipeline.js    # Google Speech-to-Text
-│   └── voskRecognizer.js  # Reconhecimento offline
-├── wsServer/
-│   └── websocket.js       # Servidor WebSocket
+│   ├── Ffmpeg.js              # Processamento de áudio
+│   ├── GoogleSTT.js           # Google Speech-to-Text
+│   ├── GoogleBilingualSTT.js  # Reconhecimento bilíngue
+│   ├── VoskSTT.js             # Reconhecimento offline
+│   └── SpeechStreamManager.js # Gerenciamento de streams
+├── routes/
+│   └── lesson.js              # API de gerenciamento de aulas
+├── models/
+│   └── Lesson.js              # Modelo de dados das aulas
 ├── public/
-│   ├── app.html           # Interface principal
-│   └── landpage.html      # Página inicial
-├── config.js              # Configurações
-└── index.js               # Servidor principal
+│   ├── app.html               # Interface principal
+│   └── landpage.html          # Página inicial
+├── config.js                  # Configurações
+└── index.js                   # Servidor principal
 ```
 
 ## Troubleshooting
@@ -129,4 +161,6 @@ node index.js
 DEBUG=* node index.js  # Logs detalhados
 ```
 
-Este sistema fornece uma solução completa para transcrição de voz em tempo real com suporte a múltiplos motores de reconhecimento e integração com VLibras para tradução em LIBRAS.
+---
+
+**Versão 1.0** - Sistema completo utilizado na apresentação final do TCC. Inclui transcrição em tempo real, reconhecimento bilíngue, sistema de gravação de aulas e integração com VLibras para tradução em LIBRAS.

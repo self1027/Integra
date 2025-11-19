@@ -55,9 +55,6 @@ class GoogleBilingualSTT extends BaseGoogleSTT {
 
     if (!isFinal || !transcript || !this._onTranscription) return;
 
-    console.log(`[GSTT-Bilingual] FINAL (${languageCode}): "${transcript}"`);
-
-    // SEMPRE tentar traduzir, independente do idioma detectado
     const translatedText = await this._handleTranslation(transcript, languageCode);
     
     const payload = {
@@ -68,13 +65,6 @@ class GoogleBilingualSTT extends BaseGoogleSTT {
       isPrimary: languageCode.toLowerCase() === this._config.primaryLanguage.toLowerCase()
     };
 
-    console.log(`[GSTT-Bilingual] Payload:`, {
-      language: payload.language,
-      isPrimary: payload.isPrimary,
-      hasTranslation: !!payload.translated,
-      transcriptLength: transcript.length
-    });
-
     this._onTranscription(payload);
   }
 
@@ -84,9 +74,6 @@ class GoogleBilingualSTT extends BaseGoogleSTT {
     }
     
     try {
-      console.log(`[DEBUG] Attempting translation from ${this._config.secondaryLanguage} to ${this._config.primaryLanguage}: "${transcript}"`);
-      
-      // SEMPRE tentar traduzir do secondary para primary
       const request = {
         parent: `projects/${this._projectId}/locations/${this._location}`,
         contents: [transcript],
@@ -100,13 +87,9 @@ class GoogleBilingualSTT extends BaseGoogleSTT {
       if (response.translations && response.translations[0]) {
         const translatedText = response.translations[0].translatedText;
         
-        console.log(`[DEBUG] API Response: "${translatedText}"`);
-        
         if (translatedText && translatedText.toLowerCase() !== transcript.toLowerCase()) {
-          console.log(`[DEBUG] Translation successful`);
           return translatedText;
         } else {
-          console.log(`[DEBUG] Translation identical to original`);
           return null;
         }
       }
@@ -120,7 +103,7 @@ class GoogleBilingualSTT extends BaseGoogleSTT {
   }
 
   _onStreamStart() {
-    console.log(`[GSTT-Bilingual] Stream started for languages: ${this._config.primaryLanguage}, ${this._config.secondaryLanguage}`);
+    // console.log(`[GSTT-Bilingual] Stream started for languages: ${this._config.primaryLanguage}, ${this._config.secondaryLanguage}`);
   }
 }
 

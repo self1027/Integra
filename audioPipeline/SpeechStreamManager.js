@@ -45,7 +45,6 @@ class SpeechStreamManager {
       try {
         this._audioInputStream.write(pcmBuffer);
       } catch (error) {
-        console.warn("[SpeechStream] Stream write error, restarting:", error.message);
         this._restartStream();
         setTimeout(() => {
           if (this._audioInputStream && this._audioInputStream.writable) {
@@ -70,9 +69,7 @@ class SpeechStreamManager {
         try {
           stream.removeAllListeners();
           stream.destroy();
-        } catch (e) {
-          console.warn("[SpeechStream] Error cleaning stream:", e);
-        }
+        } catch (e) {}
       }
     });
 

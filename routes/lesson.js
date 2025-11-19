@@ -2,8 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Lesson = require('../models/Lesson');
 
-// GET /lesson/list - renderizar página de listagem
-router.get('/list', async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const lessons = await Lesson.find().sort({ createdAt: -1 });
     res.render('lessons/list', { 
@@ -15,13 +14,11 @@ router.get('/list', async (req, res) => {
   }
 });
 
-// GET /lesson/select - mostrar frases de uma aula específica
 router.get('/select', async (req, res) => {
   try {
     const lessonId = req.query.lesson;
     
     if (lessonId) {
-      // Mostrar frases de uma aula específica
       const lesson = await Lesson.findById(lessonId);
       if (!lesson) {
         return res.status(404).render('lessons/select', { 
@@ -35,7 +32,6 @@ router.get('/select', async (req, res) => {
         title: `Frases da Aula - ${new Date(lesson.startedAt).toLocaleString()}`
       });
     } else {
-      // Se não há ID, redirecionar para lista
       return res.redirect('/lesson/list');
     }
   } catch (err) {
@@ -43,7 +39,6 @@ router.get('/select', async (req, res) => {
   }
 });
 
-// GET /lesson/:id/detail - detalhes de uma aula específica
 router.get('/:id/detail', async (req, res) => {
   try {
     const lesson = await Lesson.findById(req.params.id);
@@ -58,17 +53,6 @@ router.get('/:id/detail', async (req, res) => {
   }
 });
 
-// GET /lesson - listar todas as lessons
-router.get('/', async (req, res) => {
-  try {
-    const lessons = await Lesson.find().sort({ createdAt: -1 });
-    res.json(lessons);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// GET /lesson/:id - pegar uma lesson pelo ID
 router.get('/:id', async (req, res) => {
   try {
     const lesson = await Lesson.findById(req.params.id);
@@ -79,7 +63,6 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// POST /lesson - criar nova lesson completa
 router.post('/', async (req, res) => {
   try {
     const { startedAt, endedAt, entries } = req.body;
@@ -88,10 +71,8 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: "startedAt e endedAt são obrigatórios" });
     }
 
-    // Calcular duração em segundos
     const duration = Math.round((new Date(endedAt) - new Date(startedAt)) / 1000);
 
-    // Criar a lesson com todas as frases
     const lesson = new Lesson({
       startedAt: new Date(startedAt),
       endedAt: new Date(endedAt),
@@ -112,7 +93,6 @@ router.post('/', async (req, res) => {
   }
 });
 
-// PUT /lesson/:id - atualizar lesson
 router.put('/:id', async (req, res) => {
   try {
     const lesson = await Lesson.findByIdAndUpdate(req.params.id, req.body, { 
@@ -126,12 +106,35 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// DELETE /lesson/:id - deletar lesson
 router.delete('/:id', async (req, res) => {
   try {
     const lesson = await Lesson.findByIdAndDelete(req.params.id);
     if (!lesson) return res.status(404).json({ error: 'Lesson não encontrada' });
     res.json({ message: 'Lesson deletada com sucesso' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.patch('/:id/rename', async (req, res) => {
+  try {
+    const { title } = req.body;
+
+    if (!title || !title.trim()) {
+      return res.status(400).json({ error: 'Título é obrigatório' });
+    }
+
+    const lesson = await Lesson.findByIdAndUpdate(
+      req.params.id,
+      { title: title.trim() },
+      { new: true, runValidators: true }
+    );
+
+    if (!lesson) {
+      return res.status(404).json({ error: 'Aula não encontrada' });
+    }
+
+    res.json({ message: 'Aula renomeada com sucesso', lesson });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

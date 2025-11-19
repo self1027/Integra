@@ -13,9 +13,9 @@ const lessonSchema = new mongoose.Schema({
   title: { type: String, default: 'Aula sem título' },
   startedAt: { type: Date, required: true },
   endedAt: { type: Date, required: true },
-  phrases: [phraseSchema], // Array de frases
+  phrases: [phraseSchema],
   totalPhrases: { type: Number, default: 0 },
-  duration: { type: Number, default: 0 } // em segundos
+  duration: { type: Number, default: 0 }
 }, {
   timestamps: true
 });
