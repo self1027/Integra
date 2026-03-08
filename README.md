@@ -34,7 +34,6 @@ O sistema exige um ambiente de execução que suporte processamento de áudio in
 
 * Node.js v18.x ou superior.
 * FFmpeg instalado e acessível via variáveis de ambiente (PATH).
-* Instância ativa do MongoDB.
 
 ### Procedimento:
 
