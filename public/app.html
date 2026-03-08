@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Integra - MQF</title>
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/img/MQF/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/img/MQF/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/img/MQF/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/img/MQF/favicon/site.webmanifest">
+  <link rel="icon" type="image/x-icon" href="/img/MQF/favicon/favicon.ico">
+  <link rel="shortcut icon" href="/img/MQF/favicon/favicon.ico">
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <link rel="stylesheet" href="css/VLibras.css">
+  <link rel="stylesheet" href="/css/MQF/app.css">
+</head>
+<body>
+
+<div id="introModal" class="modal-overlay">
+    <div class="modal-content">
+      <div style="margin-bottom: 15px;">
+        <h2 style="font-size: 1.1rem; display: flex; align-items: center; gap: 10px;">
+          <i class="fas fa-graduation-cap" style="color: #007bff;"></i> 
+          Projeto Integra MQF
+        </h2>
+        <hr style="border: 0; border-top: 2px solid #222; margin: 10px 0;">
+      </div>
+
+      <div style="margin-bottom: 20px;">
+        <p style="font-size: 0.85rem; line-height: 1.5; color: #333;">
+          Este módulo de acessibilidade foi desenvolvido como meu <strong>Trabalho de Conclusão de Curso (TCC)</strong>.
+        </p>
+        <br>
+        <p style="font-size: 0.8rem; line-height: 1.5; color: #666; border-left: 3px solid #007bff; padding-left: 10px;">
+          Esta versão funciona como uma <strong>demonstração</strong> técnica, sendo apenas uma parte de um sistema maior que engloba módulos de persistência de dados, segurança e gestão de fluxos.
+        </p>
+      </div>
+
+      <div style="background: #f4f4f4; padding: 10px; border: 1px dashed #222; margin-bottom: 20px;">
+        <p style="font-size: 0.7rem; color: #444; text-align: center;">
+          <i class="fas fa-info-circle"></i> Foco: Transcrição local e tradução simultânea.
+        </p>
+      </div>
+
+      <button id="closeModal" class="btn-success">
+        Acessar Demonstração
+      </button>
+    </div> 
+  </div>
+
+  <header class="hero-section">
+    <h1>Integra <span style="color: #007bff;">MQF</span></h1>
+    <p class="role-subtitle">Módulo de Transcrição</p>
+  </header>
+
+  <main class="main-content">
+    <div class="container-inner">
+      <div class="input-group">
+        <div id="status" class="status-box ready">
+          <i class="fas fa-circle"></i>
+          <span>PRONTO PARA CONECTAR</span>
+        </div>
+        
+        <div class="controls">
+          <button id="startBtn" class="link-button btn-primary-neo">
+            <i class="fas fa-play"></i> Conectar
+          </button>
+          <button id="stopBtn" class="link-button btn-danger-neo" disabled>
+            <i class="fas fa-stop"></i> Parar
+          </button>
+        </div>
+      </div>
+  </main>
+
+  <div vw class="enabled">
+    <div vw-access-button class="permanently-hidden"></div>
+    <div vw-plugin-wrapper>
+      <div class="vw-plugin-top-wrapper"></div>
+    </div>
+  </div>
+
+  <footer class="social-footer">
+    <p>Desenvolvido por <strong>Murilo D.</strong> e <strong>Victor H.</strong></p>
+    <div class="social-links">
+      <a href="https://murilod.dev/" target="_blank" class="link-button">Portfólio</a>
+      <a href="https://www.linkedin.com/in/murilo-dias-dev/" target="_blank" class="link-button">LinkedIn</a>
+      <a href="https://github.com/self1027" target="_blank" class="link-button">GitHub</a>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById('closeModal').addEventListener('click', () => {
+      document.getElementById('introModal').style.display = 'none';
+    });
+  </script>
+
+  <script src="/js/script-vlibras.js"></script>
+  <script type="module" src="/js/vlibras-loader.js"></script>
+  <script src="/js/audio_ws.js"></script>
+</body>
+</html>

@@ -4,7 +4,6 @@ import { initVLibrasQueue } from './vlibras-queue.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   initDOMManipulations();
-
   const { patchVLibrasGlossEnd } = initVLibrasWidget();
   initVLibrasQueue(patchVLibrasGlossEnd);
-})
+});

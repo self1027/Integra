@@ -17,7 +17,10 @@ class VoskSTT {
 
   init() {
     this.stop();
-    this._recognizer = new vosk.Recognizer({ model: this._model, sampleRate: this._sampleRate });
+    this._recognizer = new vosk.Recognizer({ 
+      model: this._model, 
+      sampleRate: this._sampleRate 
+    });
   }
 
   pushAudio(pcmBuffer) {
@@ -25,15 +28,20 @@ class VoskSTT {
       console.warn("[Vosk] Recognizer not initialized. Cannot accept audio.");
       return null;
     }
+
+    // acceptWaveform retorna true apenas quando detecta uma pausa (fim de frase)
     if (this._recognizer.acceptWaveform(pcmBuffer)) {
       const result = this._recognizer.result().text;
-      if (result) {
+      
+      if (result && result.trim() !== "") {
+        const finalPhrase = result.trim();
         if (this._onTranscription) {
-          this._onTranscription(result.trim());
+          this._onTranscription(finalPhrase);
         }
-        return result.trim();
+        return finalPhrase;
       }
     }
+    
     return null;
   }
 
@@ -41,7 +49,9 @@ class VoskSTT {
     if (this._recognizer) {
       try {
         this._recognizer.free();
-      } catch {}
+      } catch (e) {
+        // Silent cleanup
+      }
       this._recognizer = null;
     }
   }
