@@ -1,31 +1,73 @@
-// VLibras widget core
 export function initVLibrasWidget() {
-  const widget = new window.VLibras.Widget({
-    rootPath: 'https://vlibras.gov.br/app',
-    position: 'T',
-    opacity: 0.95
-  });
+  let patchedPlayer = null;
+  let patchAttempts = 0;
 
-  // Patch gloss:end event
-  function patchVLibrasGlossEnd(onGlossEndCallback) {
-    if (!window.plugin || !window.plugin.player) {
-      setTimeout(() => patchVLibrasGlossEnd(onGlossEndCallback), 500);
+  const notifyGlossEnd = callback => {
+    if (typeof callback === 'function') {
+      callback();
+    }
+  };
+
+  const patchPlayer = callback => {
+    const player = window.plugin?.player;
+
+    if (!player) {
+      patchAttempts++;
+
+      if (patchAttempts < 100) {
+        setTimeout(
+          () => patchPlayer(callback),
+          200
+        );
+      }
+
       return;
     }
 
-    const player = window.plugin.player;
-    if (player._glossEndPatched) return;
+    if (patchedPlayer === player) {
+      return;
+    }
 
-    const originalEmit = player.emit;
-    player.emit = function(event, ...args) {
-      if (event === 'gloss:end' && onGlossEndCallback) {
-        onGlossEndCallback();
+    patchedPlayer = player;
+
+    const originalStopped = player.onStopped;
+
+    player.onStopped = function (...args) {
+      if (typeof originalStopped === 'function') {
+        originalStopped.apply(
+          this,
+          args
+        );
       }
-      return originalEmit.call(this, event, ...args);
+
+      notifyGlossEnd(callback);
     };
+  };
 
-    player._glossEndPatched = true;
-  }
+  const patchVLibrasGlossEnd = callback => {
+    window.addEventListener(
+      'message',
+      event => {
+        const data = event.data;
 
-  return { widget, patchVLibrasGlossEnd };
+        if (
+          data?.type === 'GLOSS_END' ||
+          data?.action === 'stopped' ||
+          (
+            data?.event === 'stateChange' &&
+            data?.state === 'stopped'
+          )
+        ) {
+          notifyGlossEnd(callback);
+        }
+      }
+    );
+
+    patchAttempts = 0;
+    patchPlayer(callback);
+  };
+
+  return {
+    patchVLibrasGlossEnd
+  };
 }
