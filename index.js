@@ -1,16 +1,12 @@
 const express = require('express');
 const http = require('http');
-const bodyParser = require('body-parser')
 const https = require('https');
 const { WebSocketServerManager } = require('./wsServer/websocket');
 const { SSL_OPTIONS, HTTP_PORT, HTTPS_PORT, HTTP_REDIRECT_PORT } = require('./config');
 const path = require('path');
 
 const app = express();
-app.use(express.static('public'))
-
-app.use(bodyParser.urlencoded({extended:false}))
-app.use(bodyParser.json())
+app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, './public/app.html')); 

@@ -1,59 +1,42 @@
 const vosk = require('vosk');
 
 class VoskSTT {
-  constructor({ model, sampleRate, onTranscription }) {
-    this._recognizer = null;
-    this._model = model;
-    this._sampleRate = sampleRate;
-    this._onTranscription = onTranscription;
-
-    if (!vosk) {
-      console.error("Vosk library not found. Please install it.");
-      return;
-    }
-
-    this.init();
+  constructor({ model, sampleRate, onRecognition, createRecognizer = options => new vosk.Recognizer(options) }) {
+    this.recognizer = createRecognizer({ model, sampleRate });
+    this.recognizer.setWords(true);
+    this.recognizer.setPartialWords(true);
+    this.sampleRate = sampleRate;
+    this.onRecognition = onRecognition;
+    this.samples = 0;
+    this.lastPartial = -Infinity;
   }
 
-  init() {
+  pushAudio(buffer) {
+    if (!this.recognizer) return;
+    this.samples += buffer.length / 2;
+    const audioTime = this.samples / this.sampleRate;
+    if (this.recognizer.acceptWaveform(buffer)) {
+      this._emit(this.recognizer.result(), true, audioTime);
+    } else if (audioTime - this.lastPartial >= 0.2) {
+      this.lastPartial = audioTime;
+      this._emit(this.recognizer.partialResult(), false, audioTime);
+    }
+  }
+
+  _emit(result, final, audioTime) {
+    this.onRecognition({ text: (final ? result.text : result.partial) || '', words: (final ? result.result : result.partial_result) || [], final, audioTime });
+  }
+
+  finish() {
+    if (!this.recognizer) return;
+    this._emit(this.recognizer.finalResult(), true, this.samples / this.sampleRate);
     this.stop();
-    this._recognizer = new vosk.Recognizer({ 
-      model: this._model, 
-      sampleRate: this._sampleRate 
-    });
-  }
-
-  pushAudio(pcmBuffer) {
-    if (!this._recognizer) {
-      console.warn("[Vosk] Recognizer not initialized. Cannot accept audio.");
-      return null;
-    }
-
-    // acceptWaveform retorna true apenas quando detecta uma pausa (fim de frase)
-    if (this._recognizer.acceptWaveform(pcmBuffer)) {
-      const result = this._recognizer.result().text;
-      
-      if (result && result.trim() !== "") {
-        const finalPhrase = result.trim();
-        if (this._onTranscription) {
-          this._onTranscription(finalPhrase);
-        }
-        return finalPhrase;
-      }
-    }
-    
-    return null;
   }
 
   stop() {
-    if (this._recognizer) {
-      try {
-        this._recognizer.free();
-      } catch (e) {
-        // Silent cleanup
-      }
-      this._recognizer = null;
-    }
+    if (!this.recognizer) return;
+    this.recognizer.free();
+    this.recognizer = null;
   }
 }
 

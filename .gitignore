@@ -5,3 +5,4 @@
 /key.pem
 /.env
 /gcp-speech-key.json
+/.taste-skill/

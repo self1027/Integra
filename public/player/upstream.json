@@ -1,0 +1,36 @@
+{
+  "repository": "spbgovbr-vlibras/vlibras-web-browsers",
+  "commit": "be3fa2506a7c43e36e2ba551483cb5f89388d495",
+  "files": {
+    "unity-loader.js": {
+      "source": "https://raw.githubusercontent.com/spbgovbr-vlibras/vlibras-web-browsers/be3fa2506a7c43e36e2ba551483cb5f89388d495/public/unity/unity-loader.js",
+      "bytes": 150016,
+      "sha256": "c1845b1e35a2784f237391802e36009872d9ae587a94c2ee5a66546696af4a88",
+      "header": "76617220"
+    },
+    "playerweb.data.unityweb": {
+      "source": "https://raw.githubusercontent.com/spbgovbr-vlibras/vlibras-web-browsers/be3fa2506a7c43e36e2ba551483cb5f89388d495/public/unity/playerweb.data.unityweb",
+      "bytes": 16992528,
+      "sha256": "0c9897ea830739a09a8a2d132e219761d7017b22feae5ec9b2feb4ed075b1256",
+      "header": "6b8d0055"
+    },
+    "playerweb.wasm.code.unityweb": {
+      "source": "https://raw.githubusercontent.com/spbgovbr-vlibras/vlibras-web-browsers/be3fa2506a7c43e36e2ba551483cb5f89388d495/public/unity/playerweb.wasm.code.unityweb",
+      "bytes": 2996753,
+      "sha256": "4005cfe27f5252c8dafaccbca4c1338de9491c5076a62da8df2bfd036d6eeb4e",
+      "header": "6b8d0055"
+    },
+    "playerweb.wasm.framework.unityweb": {
+      "source": "https://raw.githubusercontent.com/spbgovbr-vlibras/vlibras-web-browsers/be3fa2506a7c43e36e2ba551483cb5f89388d495/public/unity/playerweb.wasm.framework.unityweb",
+      "bytes": 76883,
+      "sha256": "7177d7748ffd7715e1150e202924f3d502df7531b672ccf6a39291cf8ccba3fb",
+      "header": "6b8d0055"
+    },
+    "LICENSE": {
+      "source": "https://raw.githubusercontent.com/spbgovbr-vlibras/vlibras-web-browsers/be3fa2506a7c43e36e2ba551483cb5f89388d495/LICENSE",
+      "bytes": 7651,
+      "sha256": "da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768",
+      "header": "20202020"
+    }
+  }
+}

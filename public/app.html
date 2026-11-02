@@ -1,154 +1,89 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-  <title>Integra - MQF</title>
-
-  <link rel="apple-touch-icon" sizes="180x180" href="/img/MQF/favicon/apple-touch-icon.png">
-  <link rel="icon" type="image/png" sizes="32x32" href="/img/MQF/favicon/favicon-32x32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/img/MQF/favicon/favicon-16x16.png">
-  <link rel="manifest" href="/img/MQF/favicon/site.webmanifest">
-  <link rel="icon" type="image/x-icon" href="/img/MQF/favicon/favicon.ico">
-  <link rel="shortcut icon" href="/img/MQF/favicon/favicon.ico">
-
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="css/VLibras.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Integra: da fala à Libras. Experimente a transcrição de voz e acompanhe os sinais com o avatar VLibras.">
+  <meta name="theme-color" content="#f8f7f4">
+  <title>Integra — Da fala à Libras</title>
+  <link rel="icon" type="image/svg+xml" href="/img/integra.svg">
+  <script src="/js/theme.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/MQF/app.css">
-
   <script>
-    (function(c,l,a,r,i,t,y){
-      c[a]=c[a]||function(){
-        (c[a].q=c[a].q||[]).push(arguments)
-      };
-
-      t=l.createElement(r);
-      t.async=1;
-      t.src="https://www.clarity.ms/tag/"+i;
-
-      y=l.getElementsByTagName(r)[0];
-      y.parentNode.insertBefore(t,y);
-    })(window, document, "clarity", "script", "vv47laeb5d");
+    (function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window,document,"clarity","script","vv47laeb5d");
   </script>
 </head>
-
 <body>
-
-  <header class="hero-section">
-    <h1>
-      Integra <span style="color: #007bff;">MQF</span>
-    </h1>
-
-    <p class="role-subtitle">
-      Módulo de Transcrição
-    </p>
+  <a class="skip-link" href="#experimente">Pular para a ferramenta</a>
+  <header class="site-header shell">
+    <a class="brand" href="#inicio" aria-label="Integra, início"><span class="brand-symbol" aria-hidden="true">i.</span>integra<span class="brand-period" aria-hidden="true">.</span></a>
+    <div class="header-credits" aria-label="Autores do projeto">
+      <a class="header-link" href="https://murilod.dev/" target="_blank" rel="noopener noreferrer">Murilo D. ↗</a>
+      <a class="header-link" href="https://www.linkedin.com/in/victor-hugo-souza-41339a21b/" target="_blank" rel="noopener noreferrer">Victor H. ↗</a>
+    </div>
+    <button id="themeToggle" class="theme-toggle" type="button" aria-label="Alternar tema" hidden>
+      <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg>
+      <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20.5 13a8.5 8.5 0 0 1-9.5-9.5A8.5 8.5 0 1 0 20.5 13Z"/></svg>
+    </button>
   </header>
-
-  <main class="main-content">
-    <div class="container-inner">
-      <div class="input-group">
-
-        <div id="status" class="status-box ready">
-          <i class="fas fa-circle"></i>
-          <span>PRONTO PARA CONECTAR</span>
+  <main id="inicio">
+    <div class="workspace-heading shell">
+      <div><h1>Da fala à Libras</h1><p>Conecte o microfone, fale em português e acompanhe a tradução.</p></div>
+    </div>
+    <div id="experimente" class="workspace shell" tabindex="-1">
+      <section class="panel capture-panel" aria-labelledby="captureTitle">
+        <div class="panel-heading">
+          <h2 id="captureTitle">Microfone</h2>
+          <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2m-7 9v3m-4 0h8"/></svg>
         </div>
-
-        <div class="controls">
-          <button id="startBtn" class="link-button btn-primary-neo">
-            <i class="fas fa-play"></i>
-            Conectar
-          </button>
-
-          <button id="stopBtn" class="link-button btn-danger-neo" disabled>
-            <i class="fas fa-stop"></i>
-            Parar
-          </button>
+        <p class="description">O texto aparece durante a fala. Os trechos estáveis seguem para o avatar.</p>
+        <div class="capture-controls" data-ui>
+          <p id="status" class="status-box" role="status" aria-atomic="true">Pronto para conectar</p>
+          <div class="controls">
+            <button id="startBtn" class="primary" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2m-7 9v3m-4 0h8"/></svg>Conectar microfone</button>
+            <button id="stopBtn" class="secondary" type="button" aria-label="Parar captura" disabled><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1"/></svg><span>Parar<span class="desktop-text"> captura</span></span></button>
+          </div>
+          <div class="capture-bottom"><p id="queueStatus" class="small">Nenhum trecho na fila.</p><button id="cancelBtn" class="text-button" type="button" disabled>Cancelar sinalização</button></div>
+          <div id="errorBox" class="notice error" role="alert" hidden></div>
+          <div id="retryBox" class="notice" hidden>
+            <p>Não foi possível traduzir o próximo trecho.</p>
+            <div class="controls"><button id="retryBtn" class="secondary" type="button">Tentar novamente</button><button id="skipBtn" class="secondary" type="button">Ignorar este trecho</button></div>
+          </div>
+          <div id="conflictBox" class="notice" hidden>
+            <p>O reconhecimento corrigiu um trecho já sinalizado. Confira o texto antes de continuar.</p><p id="conflictText"></p>
+            <button id="repeatBtn" class="secondary" type="button">Reproduzir enunciado corrigido (pode repetir sinais)</button>
+            <button id="continueBtn" class="secondary" type="button">Próximo enunciado (ignora o restante conflitante)</button>
+          </div>
         </div>
-
-      </div>
+      </section>
+      <section class="panel avatar-panel" aria-labelledby="avatarTitle">
+        <div class="avatar-heading panel-heading"><h2 id="avatarTitle">Tradução em Libras</h2><span class="avatar-source">Avatar VLibras</span></div>
+        <div class="avatar-stage" data-ui><iframe id="avatar" title="Avatar de tradução em Libras" src="/player/index.html" sandbox="allow-scripts allow-same-origin allow-pointer-lock"></iframe></div>
+        <div class="avatar-toolbar" data-ui>
+          <p id="playerStatus" role="status" aria-atomic="true">Carregando avatar…</p>
+          <label for="speed">Velocidade <select id="speed"><option value="0.5">0,5×</option><option value="1" selected>1×</option><option value="1.5">1,5×</option><option value="2">2×</option><option value="3">3×</option><option value="4">4×</option></select></label>
+        </div>
+        <div class="playing-caption"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 4h16v12H9l-5 4V4Z"/><path d="M8 8h8m-8 4h5"/></svg><p id="playingText" class="playing-text">O avatar aguarda sua fala.</p></div>
+      </section>
+      <section class="panel transcript-panel" aria-labelledby="transcriptTitle">
+        <div class="panel-heading"><h2 id="transcriptTitle">Transcrição</h2><span class="transcript-label">Ao vivo</span></div>
+        <div class="transcript-output" data-ui><div id="transcript" class="transcript" role="log" aria-label="Transcrição da sua fala" aria-live="off"><p class="placeholder">Sua fala aparece aqui.</p></div><p id="timingStatus" class="small"></p></div>
+        <p class="small transcript-help">O texto em cinza ainda pode mudar. Ao parar a captura, os sinais pendentes continuam.</p>
+        <details>
+          <summary>Tempos da sessão <span aria-hidden="true">+</span></summary>
+          <dl class="metrics"><div><dt>Última tradução</dt><dd id="translationTime">—</dd></div><div><dt>Do bloco ao início dos sinais</dt><dd id="playbackTime">—</dd></div></dl>
+          <p class="small">Não inclui o tempo de fala anterior à preparação do bloco.</p>
+        </details>
+      </section>
     </div>
   </main>
-
-  <footer class="social-footer">
-    <p>
-      Desenvolvido por
-      <strong>Murilo D.</strong>
-      e <strong>Victor H.</strong>
-    </p>
-
-    <div class="social-links">
-      <a href="https://murilod.dev/" target="_blank" class="link-button">
-        Portfólio
-      </a>
-
-      <a href="https://www.linkedin.com/in/murilo-dias-dev/" target="_blank" class="link-button">
-        LinkedIn
-      </a>
-
-      <a href="https://github.com/self1027" target="_blank" class="link-button">
-        GitHub
-      </a>
-    </div>
+  <footer class="site-footer shell">
+    <p>Demonstração experimental · TCC de Murilo D. e Victor H.</p>
+    <nav aria-label="Links do projeto"><a href="https://github.com/self1027" target="_blank" rel="noopener noreferrer">GitHub ↗</a><a href="https://www.gov.br/governodigital/pt-br/acessibilidade-e-usuario/vlibras/vlibras" target="_blank" rel="noopener noreferrer">VLibras ↗</a><a href="/player/LICENSE">Licença LGPL</a></nav>
   </footer>
-
-  <div id="introModal" class="modal-overlay" popover="manual">
-    <div class="modal-content">
-
-      <div class="modal-header">
-        <h2>
-          <i class="fas fa-graduation-cap"></i>
-          Projeto Integra MQF
-        </h2>
-
-        <hr>
-      </div>
-
-      <div class="modal-description">
-        <p>
-          Este módulo de acessibilidade foi desenvolvido como meu
-          <strong>Trabalho de Conclusão de Curso (TCC)</strong>.
-        </p>
-
-        <p class="secondary-description">
-          Esta versão funciona como uma <strong>demonstração</strong>
-          técnica, sendo apenas uma parte de um sistema maior que engloba
-          módulos de persistência de dados, segurança e gestão de fluxos.
-        </p>
-      </div>
-
-      <div class="modal-info">
-        <p>
-          <i class="fas fa-info-circle"></i>
-          Foco: Transcrição local e tradução simultânea.
-        </p>
-      </div>
-
-      <button id="closeModal" class="btn-success" type="button">
-        Acessar Demonstração
-      </button>
-
-    </div>
-  </div>
-
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const modal = document.getElementById('introModal');
-      const closeModal = document.getElementById('closeModal');
-
-      if (!modal) return;
-
-      modal.showPopover();
-
-      closeModal?.addEventListener('click', () => {
-        modal.hidePopover();
-      });
-    });
-  </script>
-
-  <script src="/js/script-vlibras.js"></script>
-  <script type="module" src="/js/vlibras-loader.js"></script>
-  <script src="/js/audio_ws.js"></script>
-
+  <script type="module" src="/js/audio_ws.js"></script>
 </body>
 </html>

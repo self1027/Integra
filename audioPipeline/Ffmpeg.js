@@ -1,113 +1,62 @@
-const { spawn } = require('child_process');
+const { spawn } = require('node:child_process');
 
 class Ffmpeg {
   constructor({ inputSampleRate, outputSampleRate }) {
-    this._inputSampleRate = inputSampleRate;
-    this._outputSampleRate = outputSampleRate;
-    this._ffmpegProcess = null;
-    this._isRunning = false;
-    this._onDataCallback = null;
-    this._onReadyCallback = null;
-    this._onErrorCallback = null;
+    this.inputSampleRate = inputSampleRate;
+    this.outputSampleRate = outputSampleRate;
+    this.process = null;
   }
 
-  start({ onData, onReady, onError }) {
+  start({ onData, onReady = () => {}, onError }) {
     this.stop();
-
-    this._onDataCallback = onData;
-    this._onReadyCallback = onReady;
-    this._onErrorCallback = onError;
-
-    const args = [
-      '-f', 's16le', 
-      '-ar', String(this._inputSampleRate), 
-      '-ac', '1',
-      '-i', 'pipe:0',
-      '-f', 's16le', 
-      '-ar', String(this._outputSampleRate), 
-      '-ac', '1',
-      '-loglevel', 'error', 
-      'pipe:1'
-    ];
-
-    try {
-      this._ffmpegProcess = spawn('ffmpeg', args);
-      this._isRunning = true;
-
-      if (this._onReadyCallback) {
-        this._onReadyCallback();
-      }
-
-      this._ffmpegProcess.stdout.on('data', (data) => {
-        if (this._onDataCallback) {
-          this._onDataCallback(data);
-        }
-      });
-      
-      this._ffmpegProcess.stderr.on('data', d => {
-        const message = d.toString();
-        if (!message.includes('size=') && !message.includes('time=')) {
-          console.error('[FFMPEG] stderr:', message);
-          if (this._onErrorCallback) {
-            this._onErrorCallback(new Error(message));
-          }
-        }
-      });
-      
-      this._ffmpegProcess.on('error', e => {
-        console.error('[FFMPEG] Error:', e);
-        this._isRunning = false;
-        if (this._onErrorCallback) {
-          this._onErrorCallback(e);
-        }
-      });
-      
-      this._ffmpegProcess.on('close', code => {
-        this._isRunning = false;
-        if (code !== 0 && code !== 255) {
-          if (this._onErrorCallback) {
-            this._onErrorCallback(new Error(`FFmpeg exited with code ${code}`));
-          }
-        }
-      });
-    } catch (e) {
-      console.error('[FFMPEG] Failed to spawn FFmpeg process:', e.message);
-      this._isRunning = false;
-      if (this._onErrorCallback) {
-        this._onErrorCallback(e);
-      }
-    }
+    const child = spawn('ffmpeg', [
+      '-hide_banner', '-loglevel', 'error', '-f', 's16le', '-ar', String(this.inputSampleRate),
+      '-ac', '1', '-i', 'pipe:0', '-f', 's16le', '-ar', String(this.outputSampleRate), '-ac', '1', 'pipe:1',
+    ], { windowsHide: true });
+    this.process = child;
+    this.stopping = false;
+    this.finishing = false;
+    let stderr = '';
+    const fail = error => { if (this.process === child && !this.stopping) onError(error); };
+    child.once('spawn', onReady);
+    child.stdout.on('data', onData);
+    child.stderr.on('data', data => { stderr = (stderr + data.toString()).slice(-2000); });
+    child.on('error', fail);
+    child.stdin.on('error', fail);
+    child.on('close', (code, signal) => {
+      if (this.process !== child) return;
+      this.process = null;
+      if (code !== 0 && !this.stopping) onError(new Error(stderr || 'FFmpeg encerrou inesperadamente: ' + (signal || code)));
+    });
   }
 
   pushAudio(buffer) {
-    if (this._isRunning && this._ffmpegProcess?.stdin?.writable) {
-      try {
-        this._ffmpegProcess.stdin.write(buffer);
-      } catch (error) {
-        if (this._onErrorCallback) {
-          this._onErrorCallback(error);
-        }
-      }
-    }
+    if (this.process?.stdin.writable && !this.finishing) this.process.stdin.write(buffer);
+  }
+
+  finish() {
+    if (this.finishPromise) return this.finishPromise;
+    const child = this.process;
+    if (!child) return Promise.resolve();
+    this.finishing = true;
+    this.finishPromise = new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => { child.kill(); reject(new Error('FFmpeg não concluiu o áudio em 5 segundos.')); }, 5000);
+      child.once('error', error => { clearTimeout(timeout); reject(error); });
+      child.once('close', code => {
+        clearTimeout(timeout);
+        if (code === 0) resolve(); else reject(new Error('FFmpeg encerrou com código ' + code));
+      });
+      child.stdin.end();
+    });
+    return this.finishPromise;
   }
 
   stop() {
-    if (this._ffmpegProcess) {
-      try { 
-        if (this._ffmpegProcess.stdin && !this._ffmpegProcess.stdin.destroyed) {
-          this._ffmpegProcess.stdin.end(); 
-        }
-        if (this._isRunning) {
-          this._ffmpegProcess.kill('SIGTERM'); 
-        }
-      } catch (error) {
-        // Silent cleanup
-      }
-      this._ffmpegProcess = null;
-      this._isRunning = false;
-      this._onDataCallback = null;
-      this._onReadyCallback = null;
-      this._onErrorCallback = null;
+    this.stopping = true;
+    if (this.process) {
+      this.process.stdin.destroy();
+      this.process.kill();
+      this.process = null;
     }
   }
 }

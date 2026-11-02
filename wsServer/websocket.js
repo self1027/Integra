@@ -1,114 +1,93 @@
-const { WebSocketServer } = require('ws');
-const { Ffmpeg } = require('../audioPipeline/Ffmpeg.js');
-const { VoskSTT } = require('../audioPipeline/VoskSTT.js');
-const { MODEL_PATH, TARGET_SAMPLE_RATE, FALLBACK_SAMPLE_RATE, METADATA_WAIT_TIMEOUT } = require('../config.js');
-const vosk = require('vosk');
-const fs = require('fs');
+const { randomUUID } = require('node:crypto');
+const { WebSocketServer, WebSocket } = require('ws');
+const { StreamingSession } = require('../audioPipeline/StreamingSession');
+const { Translator } = require('../audioPipeline/Translator');
 
-if (!fs.existsSync(MODEL_PATH)) { 
-    console.error('Modelo Vosk não encontrado em:', MODEL_PATH); 
-    process.exit(1); 
+function attachWebSocket(server, { createPipeline, translate } = {}) {
+  const translator = new Translator();
+  const wss = new WebSocketServer({ server, maxPayload: 128 * 1024 });
+  wss.on('connection', ws => {
+    const sessionId = randomUUID();
+    const send = event => {
+      if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ ...event, sessionId }));
+    };
+    let pipeline;
+    let ending = false;
+    let closed = false;
+    const session = new StreamingSession({
+      translate: translate || translator.translate.bind(translator),
+      send: event => {
+        send(event);
+      },
+    });
+    const fail = error => { send({ type: 'error', fatal: true, message: error.message }); cleanup(); ws.close(1011, 'Falha no pipeline de áudio'); };
+    async function finish() {
+      if (!pipeline || ending || closed) return;
+      ending = true;
+      try {
+        await pipeline.finish();
+        send({ type: 'audio_ended' });
+      } catch (error) { if (!closed) fail(error); }
+    }
+    function cleanup() {
+      if (closed) return;
+      closed = true; clearTimeout(metadataTimer); session.cancel(); pipeline?.stop();
+    }
+    const metadataTimer = setTimeout(() => {
+      if (!pipeline) { send({ type: 'error', message: 'Metadados de áudio não recebidos.' }); ws.close(1008, 'Metadados ausentes'); }
+    }, 5000);
+    send({ type: 'session' });
+    ws.on('message', (data, isBinary) => {
+      if (closed) return;
+      try {
+        if (isBinary) {
+          if (!pipeline || ending || data.length % 2) { send({ type: 'error', message: 'Frame PCM fora de uma captura ativa ou inválido.' }); return; }
+          pipeline.pushAudio(data); return;
+        }
+        const msg = JSON.parse(data.toString('utf8'));
+        if (!msg || typeof msg !== 'object') throw new Error('Mensagem de controle inválida.');
+        switch (msg.type) {
+          case 'audio_metadata':
+            if (pipeline) throw new Error('Esta sessão já possui uma captura.');
+            if (!Number.isInteger(msg.sampleRate) || msg.sampleRate < 8000 || msg.sampleRate > 192000) throw new Error('Taxa de amostragem inválida.');
+            clearTimeout(metadataTimer);
+            pipeline = createPipeline(msg.sampleRate, event => { if (!closed) session.recognize(event); }, fail);
+            send({ type: 'audio_ready' });
+            break;
+          case 'end_audio': finish(); break;
+          case 'playback': session.playback(msg); break;
+          case 'resolve': session.resolve(msg); break;
+          case 'cancel': cleanup(); send({ type: 'cancelled' }); break;
+          default: throw new Error('Controle desconhecido.');
+        }
+      } catch (error) { send({ type: 'error', message: error.message }); }
+    });
+    ws.on('close', cleanup);
+    ws.on('error', cleanup);
+  });
+  return wss;
 }
-
-const voskModel = new vosk.Model(MODEL_PATH);
-vosk.setLogLevel(-1);
 
 class WebSocketServerManager {
-    static init({ httpServer, httpsServer }) {
-        const servers = [httpServer, httpsServer].filter(Boolean);
-        servers.forEach(server => {
-            new WebSocketServer({ server }).on('connection', (ws, req) => {
-                this._wsServerHandler(ws, req);
-            });
-        });
-    }
-
-    static _wsServerHandler(ws, req) {
-        let isPipelineInitialized = false;
-        let audioBuffer = [];
-        let inputSampleRate = FALLBACK_SAMPLE_RATE;
-        let ffmpegInstance = null;
-        let sttInstance = null;
-
-        // Timeout para iniciar o pipeline caso os metadados demorem
-        const metadataTimeout = setTimeout(() => {
-            if (!isPipelineInitialized) initPipeline(FALLBACK_SAMPLE_RATE);
-        }, METADATA_WAIT_TIMEOUT);
-
-        ws.on('message', (data) => {    
-            if (isPipelineInitialized) {
-                ffmpegInstance.pushAudio(data);
-                return;
-            }
-
-            const msg = tryParseJson(data);
-
-            // Prioridade 1: Metadados explícitos do front
-            if (msg?.type === 'audio_metadata' && msg.sampleRate) {
-                clearTimeout(metadataTimeout);
-                inputSampleRate = msg.sampleRate;
-                initPipeline(inputSampleRate);
-                return;
-            }
-
-            // Prioridade 2: Se começar a chegar buffer binário antes dos metadados
-            if (Buffer.isBuffer(data)) {
-                clearTimeout(metadataTimeout);
-                audioBuffer.push(data);
-                if (!isPipelineInitialized) initPipeline(inputSampleRate);
-            }
-        });
-
-        ws.on('close', cleanup);
-        ws.on('error', cleanup);
-
-        function initPipeline(sampleRate) {
-            if (isPipelineInitialized) return;
-            isPipelineInitialized = true;
-
-            // STT focado apenas no Vosk para a Demo
-            sttInstance = new VoskSTT({ 
-                model: voskModel, 
-                sampleRate: TARGET_SAMPLE_RATE,
-                onTranscription: (text) => {
-                    try {
-                        ws.send(JSON.stringify({ texto: text }));
-                    } catch (e) { console.error('[WS] Erro ao enviar:', e); }
-                }
-            });
-
-            ffmpegInstance = new Ffmpeg({
-                inputSampleRate: sampleRate,
-                outputSampleRate: TARGET_SAMPLE_RATE
-            });
-
-            ffmpegInstance.start({
-                onData: (pcm) => sttInstance.pushAudio(pcm),
-                onReady: () => {
-                    if (audioBuffer.length > 0) {
-                        audioBuffer.forEach(chunk => ffmpegInstance.pushAudio(chunk));
-                        audioBuffer = [];
-                    }
-                },
-                onError: (error) => {
-                    console.error('[WS] FFmpeg error:', error);
-                    cleanup();
-                }
-            });
-        }
-
-        function cleanup() {
-            clearTimeout(metadataTimeout);
-            if (ffmpegInstance) ffmpegInstance.stop();
-            if (sttInstance) sttInstance.stop();
-            isPipelineInitialized = false;
-        }
-    }
+  static init({ httpServer, httpsServer }) {
+    const vosk = require('vosk');
+    const { MODEL_PATH, TARGET_SAMPLE_RATE } = require('../config');
+    const { Ffmpeg } = require('../audioPipeline/Ffmpeg');
+    const { VoskSTT } = require('../audioPipeline/VoskSTT');
+    vosk.setLogLevel(-1);
+    const model = new vosk.Model(MODEL_PATH);
+    const createPipeline = (inputSampleRate, onRecognition, onError) => {
+      const stt = new VoskSTT({ model, sampleRate: TARGET_SAMPLE_RATE, onRecognition });
+      const ffmpeg = new Ffmpeg({ inputSampleRate, outputSampleRate: TARGET_SAMPLE_RATE });
+      ffmpeg.start({ onData: data => { try { stt.pushAudio(data); } catch (error) { onError(error); } }, onError });
+      return {
+        pushAudio: buffer => ffmpeg.pushAudio(buffer),
+        finish: async () => { await ffmpeg.finish(); stt.finish(); },
+        stop: () => { ffmpeg.stop(); stt.stop(); },
+      };
+    };
+    return [httpServer, httpsServer].filter(Boolean).map(server => attachWebSocket(server, { createPipeline }));
+  }
 }
 
-function tryParseJson(data) {
-    if (Buffer.isBuffer(data)) data = data.toString('utf8');
-    try { return JSON.parse(data); } catch { return null; }
-}
-
-module.exports = { WebSocketServerManager };
+module.exports = { WebSocketServerManager, attachWebSocket };
